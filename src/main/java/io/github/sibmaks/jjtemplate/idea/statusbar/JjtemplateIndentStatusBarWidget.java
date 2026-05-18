@@ -3,6 +3,7 @@ package io.github.sibmaks.jjtemplate.idea.statusbar;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.InputValidator;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.StatusBar;
@@ -11,16 +12,16 @@ import com.intellij.util.Consumer;
 import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
 import io.github.sibmaks.jjtemplate.idea.toolwindow.JjtemplateIndentOptions;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.awt.Component;
 import java.awt.event.MouseEvent;
+import java.util.Optional;
 
 public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, StatusBarWidget.TextPresentation {
     public static final String WIDGET_ID = "JJTemplateIndent";
 
     private final Project project;
-    private StatusBar statusBar;
+    private Optional<StatusBar> statusBar = Optional.empty();
 
     public JjtemplateIndentStatusBarWidget(@NotNull Project project) {
         this.project = project;
@@ -33,16 +34,16 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
 
     @Override
     public void install(@NotNull StatusBar statusBar) {
-        this.statusBar = statusBar;
+        this.statusBar = Optional.of(statusBar);
     }
 
     @Override
     public void dispose() {
-        this.statusBar = null;
+        this.statusBar = Optional.empty();
     }
 
     @Override
-    public @Nullable WidgetPresentation getPresentation() {
+    public @NotNull WidgetPresentation getPresentation() {
         return this;
     }
 
@@ -57,12 +58,12 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
     }
 
     @Override
-    public @Nullable String getTooltipText() {
+    public @NotNull String getTooltipText() {
         return "JJTemplate indent used by Reformat File";
     }
 
     @Override
-    public @Nullable Consumer<MouseEvent> getClickConsumer() {
+    public @NotNull Consumer<MouseEvent> getClickConsumer() {
         return event -> chooseIndent();
     }
 
@@ -74,21 +75,19 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
 
         var current = JjtemplateIndentOptions.getIndent(project);
         var values = new String[]{"1", "2", "3", "4", "5", "6", "7", "8"};
-        var selected = Messages.showChooseDialog(
-                project,
+        var selected = Messages.showEditableChooseDialog(
                 "Select indent size for JJTemplate files.",
                 "JJTemplate Indent",
                 null,
                 values,
-                String.valueOf(current)
+                String.valueOf(current),
+                new IndentInputValidator(values)
         );
-        if (selected < 0) {
+        if (selected == null) {
             return;
         }
-        JjtemplateIndentOptions.setIndent(project, Integer.parseInt(values[selected]));
-        if (statusBar != null) {
-            statusBar.updateWidget(ID());
-        }
+        JjtemplateIndentOptions.setIndent(project, Integer.parseInt(selected));
+        statusBar.ifPresent(it -> it.updateWidget(ID()));
     }
 
     private boolean hasOpenJjtemplateFile() {
@@ -109,5 +108,22 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
         }
         var extension = file.getExtension();
         return "jjt".equalsIgnoreCase(extension) || "jjtemplate".equalsIgnoreCase(extension);
+    }
+
+    private record IndentInputValidator(String[] values) implements InputValidator {
+        @Override
+        public boolean checkInput(String inputString) {
+            for (var value : values) {
+                if (value.equals(inputString)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public boolean canClose(String inputString) {
+            return checkInput(inputString);
+        }
     }
 }

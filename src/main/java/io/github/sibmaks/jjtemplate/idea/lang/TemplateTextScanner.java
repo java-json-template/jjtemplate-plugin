@@ -19,7 +19,7 @@ final class TemplateTextScanner {
         if (!isTemplateStart(source, start)) {
             return -1;
         }
-        var limit = Math.min(Math.max(endExclusive, 0), source.length());
+        var limit = Math.clamp(endExclusive, 0, source.length());
         var candidate = source.subSequence(start, limit).toString();
         try {
             var depth = 0;
@@ -39,7 +39,7 @@ final class TemplateTextScanner {
                 }
             }
             return -1;
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return findTemplateEndFallback(source, start, limit);
         }
     }

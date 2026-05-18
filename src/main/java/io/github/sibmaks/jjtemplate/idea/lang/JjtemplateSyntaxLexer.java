@@ -28,7 +28,7 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
         var source = buffer.subSequence(startOffset, endOffset).toString();
         try {
             this.tokens = toLexemes(normalizeTokens(new TemplateLexer(source).tokens(), source), source);
-        } catch (Throwable e) {
+        } catch (Exception e) {
             this.tokens = fallbackTokens(source);
         }
     }
@@ -206,7 +206,7 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
                 var type = token.type == TokenType.TEXT ? JjtemplateTokenTypes.STRING : mapType(token.type);
                 out.add(new Lexeme(type, tokenStart, tokenEnd));
             }
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             var openType = switch (source.charAt(from + 1)) {
                 case '{' -> JjtemplateTokenTypes.OPEN_EXPR;
                 case '?' -> JjtemplateTokenTypes.OPEN_COND;

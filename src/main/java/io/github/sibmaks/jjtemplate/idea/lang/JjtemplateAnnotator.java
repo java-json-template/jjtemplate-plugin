@@ -188,7 +188,7 @@ public final class JjtemplateAnnotator implements Annotator {
         try {
             var tokens = new TemplateLexer(lookup).tokens();
             highlightLookupTokenList(tokens, lookup, baseOffset, holder, fallbackStyle, localDefinitions);
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             var normalizedTokens = tryLexWithEscapedApostropheNormalization(lookup);
             if (normalizedTokens != null) {
                 highlightLookupTokenList(normalizedTokens, lookup, baseOffset, holder, fallbackStyle, localDefinitions);
@@ -238,7 +238,7 @@ public final class JjtemplateAnnotator implements Annotator {
             }
             var normalizedTokens = new TemplateLexer(normalized.source()).tokens();
             return remapTokensToOriginalOffsets(normalizedTokens, normalized.boundaries());
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return null;
         }
     }
@@ -247,8 +247,8 @@ public final class JjtemplateAnnotator implements Annotator {
         var remapped = new java.util.ArrayList<Token>(tokens.size());
         var maxBoundary = boundaries.length - 1;
         for (var token : tokens) {
-            var start = boundaries[Math.min(Math.max(token.start, 0), maxBoundary)];
-            var end = boundaries[Math.min(Math.max(token.end, 0), maxBoundary)];
+            var start = boundaries[Math.clamp(token.start, 0, maxBoundary)];
+            var end = boundaries[Math.clamp(token.end, 0, maxBoundary)];
             remapped.add(new Token(token.type, token.lexeme, start, end));
         }
         return remapped;
@@ -357,8 +357,9 @@ public final class JjtemplateAnnotator implements Annotator {
             return;
         }
         try (var parser = new JsonFactory().createParser(text)) {
-            while (parser.nextToken() != null) {
-                // Keep parsing to surface the first syntax error, if any.
+            var token = parser.nextToken();
+            while (token != null) {
+                token = parser.nextToken();
             }
         } catch (JsonParseException e) {
             var offset = toOffset(text, e);
@@ -368,7 +369,7 @@ public final class JjtemplateAnnotator implements Annotator {
             holder.newAnnotation(HighlightSeverity.ERROR, e.getOriginalMessage())
                     .range(TextRange.from(offset, 1))
                     .create();
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             // Do not block editing if JSON parser is unavailable in IDE runtime.
         }
     }
@@ -377,7 +378,7 @@ public final class JjtemplateAnnotator implements Annotator {
         if (text.isEmpty()) {
             return false;
         }
-        var target = Math.min(Math.max(offset, 0), text.length() - 1);
+        var target = Math.clamp(offset, 0, text.length() - 1);
         for (int i = 0; i < text.length(); i++) {
             if (TemplateTextScanner.isTemplateStart(text, i)) {
                 var templateEnd = TemplateTextScanner.findTemplateEnd(text, i, text.length());
@@ -549,14 +550,10 @@ public final class JjtemplateAnnotator implements Annotator {
         if (next == null) {
             return false;
         }
-        var looksLikeCall = switch (next.type()) {
+        return switch (next.type()) {
             case IDENT, STRING, NUMBER, BOOLEAN, NULL, LPAREN, DOT -> true;
             default -> false;
         };
-        if (!looksLikeCall) {
-            return false;
-        }
-        return true;
     }
 
     private static boolean isFunctionBoundary(IndexedToken previous) {
@@ -833,7 +830,7 @@ public final class JjtemplateAnnotator implements Annotator {
             holder.newAnnotation(HighlightSeverity.ERROR, e.getMessage())
                     .range(TextRange.from(position, 1))
                     .create();
-        } catch (Throwable t) {
+        } catch (Exception t) {
             if (text.isEmpty()) {
                 return;
             }
@@ -854,10 +851,9 @@ public final class JjtemplateAnnotator implements Annotator {
 
     private static boolean isEscapedApostropheFalsePositive(String text, TemplateLexerException error) {
         var message = error.getMessage();
-        if (message == null || (
-                !message.contains("Unterminated string literal")
-                        && !message.contains("Unexpected character '\\'")
-        )) {
+        if (message == null
+                || !message.contains("Unterminated string literal")
+                        && !message.contains("Unexpected character '\\'")) {
             return false;
         }
         if (!text.contains("\\\\'")) {
@@ -866,7 +862,7 @@ public final class JjtemplateAnnotator implements Annotator {
         try {
             new TemplateLexer(text.replace("\\\\'", "\\'")).tokens();
             return true;
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return false;
         }
     }

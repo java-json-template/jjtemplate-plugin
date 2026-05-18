@@ -46,7 +46,7 @@ public final class JjtemplateDocumentationProvider extends AbstractDocumentation
         if (text == null || text.isEmpty()) {
             return element.getText();
         }
-        var offset = Math.min(Math.max(sourceElement.getTextOffset(), 0), text.length() - 1);
+        var offset = Math.clamp(sourceElement.getTextOffset(), 0, text.length() - 1);
         if (!isFunctionTokenChar(text.charAt(offset)) && offset > 0 && isFunctionTokenChar(text.charAt(offset - 1))) {
             offset--;
         }
@@ -90,7 +90,7 @@ public final class JjtemplateDocumentationProvider extends AbstractDocumentation
                 return "<p><b>Value:</b></p><pre><code>" + escapeHtml(pretty) + "</code></pre>";
             }
             return "<p><b>Value:</b> <code>" + escapeHtml(node.toString()) + "</code></p>";
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return "<p><b>Value:</b></p><pre><code>" + escapeHtml(rawValue) + "</code></pre>";
         }
     }

@@ -7,11 +7,9 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.List;
 
 public final class JjtemplateFoldingBuilder extends FoldingBuilderEx {
     @Override
@@ -75,11 +73,11 @@ public final class JjtemplateFoldingBuilder extends FoldingBuilderEx {
             }
         }
 
-        return result.toArray(FoldingDescriptor.EMPTY);
+        return result.toArray(FoldingDescriptor[]::new);
     }
 
     @Override
-    public @Nullable String getPlaceholderText(@NotNull ASTNode node) {
+    public @NotNull String getPlaceholderText(@NotNull ASTNode node) {
         return "...";
     }
 

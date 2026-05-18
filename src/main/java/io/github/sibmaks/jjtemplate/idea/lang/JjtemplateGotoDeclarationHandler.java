@@ -38,7 +38,7 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
         List<Token> tokens;
         try {
             tokens = new TemplateLexer(text).tokens();
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return null;
         }
 
@@ -109,7 +109,7 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
                 continue;
             }
             if (token.type == TokenType.CLOSE && !stack.isEmpty()) {
-                var openIndex = stack.pop();
+                int openIndex = stack.pop();
                 var open = tokens.get(openIndex);
                 result.add(new TemplateRange(openIndex, i, open.start, token.end));
             }

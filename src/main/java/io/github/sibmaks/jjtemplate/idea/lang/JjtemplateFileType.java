@@ -5,7 +5,7 @@ import com.intellij.openapi.util.IconLoader;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
+import javax.swing.Icon;
 
 public final class JjtemplateFileType extends LanguageFileType {
     public static final JjtemplateFileType INSTANCE = new JjtemplateFileType();

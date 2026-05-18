@@ -6,24 +6,17 @@ import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
 import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
 
 public final class JjtemplateIndentOptions {
-    private static final int DEFAULT_INDENT = 2;
 
     private JjtemplateIndentOptions() {
     }
 
     public static int getIndent(Project project) {
         var options = CodeStyle.getSettings(project).getIndentOptions(JjtemplateFileType.INSTANCE);
-        if (options == null) {
-            return DEFAULT_INDENT;
-        }
         return normalize(options.INDENT_SIZE);
     }
 
     public static void setIndent(Project project, int indent) {
         var options = CodeStyle.getSettings(project).getIndentOptions(JjtemplateFileType.INSTANCE);
-        if (options == null) {
-            return;
-        }
         var normalized = normalize(indent);
         options.INDENT_SIZE = normalized;
         options.CONTINUATION_INDENT_SIZE = normalized;
@@ -33,6 +26,6 @@ public final class JjtemplateIndentOptions {
     }
 
     public static int normalize(int indent) {
-        return Math.max(1, Math.min(indent, 8));
+        return Math.clamp(indent, 1, 8);
     }
 }

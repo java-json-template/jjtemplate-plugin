@@ -3,7 +3,13 @@ package io.github.sibmaks.jjtemplate.idea.docs;
 import io.github.sibmaks.jjtemplate.compiler.runtime.fun.TemplateFunction;
 
 import java.lang.reflect.Modifier;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public final class BuiltInFunctionIndex {
     private static final String BASE_PACKAGE = "io.github.sibmaks.jjtemplate.compiler.runtime.fun";
@@ -54,7 +60,7 @@ public final class BuiltInFunctionIndex {
                 var name = function.getName();
                 var lookupKey = namespace.isEmpty() ? name : namespace + "::" + name;
                 result.add(new BuiltInFunctionInfo(lookupKey, namespace, name, "Built-in JJTemplate function."));
-            } catch (Throwable ignored) {
+            } catch (Exception ignored) {
                 // ignore non-instantiable classes
             }
         }
@@ -101,7 +107,7 @@ public final class BuiltInFunctionIndex {
                 var className = entryName.substring(0, entryName.length() - 6).replace('/', '.');
                 try {
                     classes.add(Class.forName(className));
-                } catch (Throwable ignored) {
+                } catch (Exception ignored) {
                     // ignore loading failures
                 }
             }
@@ -127,7 +133,7 @@ public final class BuiltInFunctionIndex {
             var className = basePackage + '.' + fileName.substring(0, fileName.length() - 6);
             try {
                 classes.add(Class.forName(className));
-            } catch (Throwable ignored) {
+            } catch (Exception ignored) {
                 // ignore loading failures
             }
         }

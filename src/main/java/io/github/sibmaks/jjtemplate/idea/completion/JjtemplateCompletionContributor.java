@@ -1,7 +1,11 @@
 package io.github.sibmaks.jjtemplate.idea.completion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.intellij.codeInsight.completion.*;
+import com.intellij.codeInsight.completion.CompletionContributor;
+import com.intellij.codeInsight.completion.CompletionParameters;
+import com.intellij.codeInsight.completion.CompletionProvider;
+import com.intellij.codeInsight.completion.CompletionResultSet;
+import com.intellij.codeInsight.completion.CompletionType;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.util.ProcessingContext;
@@ -103,7 +107,7 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
         List<Token> tokens;
         try {
             tokens = new TemplateLexer(source).tokens();
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return null;
         }
 

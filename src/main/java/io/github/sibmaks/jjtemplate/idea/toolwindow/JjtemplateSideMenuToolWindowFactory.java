@@ -30,10 +30,18 @@ import io.github.sibmaks.jjtemplate.lexer.api.Token;
 import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.*;
-import java.awt.*;
-import java.util.*;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFactory, DumbAware {
@@ -44,12 +52,6 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
-
-    @Override
-    public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        var content = ContentFactory.getInstance().createContent(createCompilerPanel(project), "Compiler", false);
-        toolWindow.getContentManager().addContent(content);
-    }
 
     private static @NotNull JPanel createCompilerPanel(@NotNull Project project) {
         try {
@@ -342,7 +344,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     }
 
     private static String[] readPathSegments(@NotNull List<Token> tokens, int rootIndex) {
-        var segments = new java.util.ArrayList<String>();
+        var segments = new ArrayList<String>();
         segments.add(tokens.get(rootIndex).lexeme);
         var cursor = rootIndex;
         while (true) {
@@ -437,12 +439,6 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         }
     }
 
-    private record IndexedToken(int index, Token token) {
-        private TokenType type() {
-            return token.type;
-        }
-    }
-
     private static String formatContextJson(@NotNull Project project, @NotNull EditorTextField contextInput) {
         try {
             var parsed = MAPPER.readValue(contextInput.getText(), MAP_TYPE);
@@ -486,5 +482,17 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             message = throwable.getMessage();
         }
         return (message == null || message.isBlank()) ? cursor.getClass().getSimpleName() : message;
+    }
+
+    @Override
+    public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
+        var content = ContentFactory.getInstance().createContent(createCompilerPanel(project), "Compiler", false);
+        toolWindow.getContentManager().addContent(content);
+    }
+
+    private record IndexedToken(int index, Token token) {
+        private TokenType type() {
+            return token.type;
+        }
     }
 }
