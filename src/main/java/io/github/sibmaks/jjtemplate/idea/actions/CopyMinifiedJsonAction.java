@@ -2,6 +2,7 @@ package io.github.sibmaks.jjtemplate.idea.actions;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.intellij.json.JsonFileType;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -38,7 +39,7 @@ public final class CopyMinifiedJsonAction extends AnAction {
         var project = event.getProject();
         var editor = event.getData(CommonDataKeys.EDITOR);
         var file = event.getData(CommonDataKeys.VIRTUAL_FILE);
-        var visible = project != null && editor != null && file != null && isJjtemplate(file.getExtension());
+        var visible = project != null && editor != null && file != null && isSupportedJsonFile(file.getExtension());
         event.getPresentation().setEnabledAndVisible(visible);
     }
 
@@ -47,13 +48,15 @@ public final class CopyMinifiedJsonAction extends AnAction {
         return ActionUpdateThread.BGT;
     }
 
-    private static boolean isJjtemplate(String extension) {
+    private static boolean isSupportedJsonFile(String extension) {
         if (extension == null) {
             return false;
         }
         return "jjt".equalsIgnoreCase(extension)
                 || "jjtemplate".equalsIgnoreCase(extension)
-                || JjtemplateFileType.INSTANCE.getDefaultExtension().equalsIgnoreCase(extension);
+                || JjtemplateFileType.INSTANCE.getDefaultExtension().equalsIgnoreCase(extension)
+                || "json".equalsIgnoreCase(extension)
+                || JsonFileType.INSTANCE.getDefaultExtension().equalsIgnoreCase(extension);
     }
 
     private static @NotNull String rootMessage(@NotNull Throwable throwable) {
