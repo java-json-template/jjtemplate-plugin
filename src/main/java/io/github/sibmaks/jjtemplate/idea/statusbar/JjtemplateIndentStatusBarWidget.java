@@ -2,6 +2,8 @@ package io.github.sibmaks.jjtemplate.idea.statusbar;
 
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
+import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.InputValidator;
 import com.intellij.openapi.ui.Messages;
@@ -35,6 +37,9 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
     @Override
     public void install(@NotNull StatusBar statusBar) {
         this.statusBar = Optional.of(statusBar);
+        project.getMessageBus()
+                .connect(this)
+                .subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new SelectedFileListener());
     }
 
     @Override
@@ -49,6 +54,9 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
 
     @Override
     public @NotNull String getText() {
+        if (!hasOpenJjtemplateFile()) {
+            return "";
+        }
         return "JJT Indent: " + JjtemplateIndentOptions.getIndent(project);
     }
 
@@ -59,6 +67,9 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
 
     @Override
     public @NotNull String getTooltipText() {
+        if (!hasOpenJjtemplateFile()) {
+            return "";
+        }
         return "JJTemplate indent used by Reformat File";
     }
 
@@ -108,6 +119,13 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
         }
         var extension = file.getExtension();
         return "jjt".equalsIgnoreCase(extension) || "jjtemplate".equalsIgnoreCase(extension);
+    }
+
+    private final class SelectedFileListener implements FileEditorManagerListener {
+        @Override
+        public void selectionChanged(@NotNull FileEditorManagerEvent event) {
+            statusBar.ifPresent(it -> it.updateWidget(ID()));
+        }
     }
 
     private record IndentInputValidator(String[] values) implements InputValidator {
