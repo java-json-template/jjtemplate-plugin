@@ -19,8 +19,12 @@ dependencies {
     intellijPlatform {
         intellijIdeaCommunity("2024.2")
         bundledPlugin("com.intellij.java")
-        pluginModule(implementation("io.github.sibmaks.jjtemplate:jjtemplate:0.8.1"))
+        pluginModule(implementation("io.github.sibmaks.jjtemplate:jjtemplate:0.9.1"))
     }
+
+    testImplementation(platform("org.junit:junit-bom:5.14.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 intellijPlatform {
@@ -50,6 +54,10 @@ pmd {
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+    }
+
     withType<JavaCompile>().configureEach {
         options.release.set(targetJavaVersion)
         options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))

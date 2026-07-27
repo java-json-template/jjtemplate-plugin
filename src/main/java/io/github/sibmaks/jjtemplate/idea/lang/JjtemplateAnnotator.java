@@ -7,6 +7,7 @@ import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors;
+import com.intellij.openapi.editor.colors.CodeInsightColors;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
@@ -820,6 +821,7 @@ public final class JjtemplateAnnotator implements Annotator {
             var rangeBindings = collectRangeBindings(tokens);
             validateSubstitutions(tokens, holder);
             highlightTemplateIdentifiers(tokens, holder, localDefinitions, rangeBindings);
+            highlightUnusedDefinitions(text, tokens, holder);
         } catch (TemplateLexerException e) {
             // The editor lexer sees raw JSON text. For expressions like {{ 'a\\'' }} inside JSON strings,
             // a raw pass may report "Unterminated string literal" even though runtime parsing is valid.
@@ -847,6 +849,20 @@ public final class JjtemplateAnnotator implements Annotator {
     }
 
     private record NormalizedLookup(String source, int[] boundaries) {
+    }
+
+    private static void highlightUnusedDefinitions(String source,
+                                                   List<Token> tokens,
+                                                   AnnotationHolder holder) {
+        for (var definition : UnusedDefinitionAnalyzer.findUnused(source, tokens)) {
+            holder.newAnnotation(
+                            HighlightSeverity.WEAK_WARNING,
+                            "Definition '" + definition.name() + "' is never used"
+                    )
+                    .range(TextRange.create(definition.start(), definition.end()))
+                    .textAttributes(CodeInsightColors.NOT_USED_ELEMENT_ATTRIBUTES)
+                    .create();
+        }
     }
 
     private static boolean isEscapedApostropheFalsePositive(String text, TemplateLexerException error) {
