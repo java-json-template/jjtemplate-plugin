@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.intellij.json.JsonFileType;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -93,13 +94,13 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             if (sourceFile == null) {
                 return;
             }
-            var document = FileDocumentManager.getInstance().getDocument(sourceFile);
-            if (document == null) {
+            var source = readFileText(sourceFile);
+            if (source == null) {
                 showError(project, "Unable to read current file.");
                 return;
             }
 
-            var script = MAPPER.readValue(document.getText(), TemplateScript.class);
+            var script = MAPPER.readValue(source, TemplateScript.class);
             var compiled = COMPILER.compile(script);
             var context = MAPPER.readValue(contextJson, MAP_TYPE);
             var rendered = compiled.render(context);
@@ -122,13 +123,13 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                 return;
             }
 
-            var document = FileDocumentManager.getInstance().getDocument(sourceFile);
-            if (document == null) {
+            var source = readFileText(sourceFile);
+            if (source == null) {
                 showError(project, "Unable to read current file.");
                 return;
             }
 
-            var contextTemplate = buildContextTemplate(document.getText());
+            var contextTemplate = buildContextTemplate(source);
             var pretty = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(contextTemplate);
             contextInput.setText(pretty);
         } catch (Exception exception) {
@@ -149,6 +150,13 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             return null;
         }
         return sourceFile;
+    }
+
+    private static String readFileText(@NotNull VirtualFile sourceFile) {
+        return ReadAction.compute(() -> {
+            var document = FileDocumentManager.getInstance().getDocument(sourceFile);
+            return document == null ? null : document.getText();
+        });
     }
 
     private static Map<String, Object> buildContextTemplate(@NotNull String source) {
