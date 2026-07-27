@@ -59,7 +59,13 @@ public final class BuiltInFunctionIndex {
                 var namespace = Optional.ofNullable(function.getNamespace()).orElse("");
                 var name = function.getName();
                 var lookupKey = namespace.isEmpty() ? name : namespace + "::" + name;
-                result.add(new BuiltInFunctionInfo(lookupKey, namespace, name, "Built-in JJTemplate function."));
+                result.add(new BuiltInFunctionInfo(
+                        lookupKey,
+                        namespace,
+                        name,
+                        "Built-in JJTemplate function.",
+                        function.isLazy()
+                ));
             } catch (Exception ignored) {
                 // ignore non-instantiable classes
             }

@@ -33,7 +33,10 @@ public final class JjtemplateDocumentationProvider extends AbstractDocumentation
 
         return "<h2>" + function.presentableName() + "</h2>"
                 + "<p>" + function.description() + "</p>"
-                + "<p><b>Kind:</b> JJTemplate built-in function</p>";
+                + "<p><b>Kind:</b> JJTemplate built-in function</p>"
+                + "<p><b>Argument evaluation:</b> "
+                + (function.lazy() ? "lazy" : "eager")
+                + "</p>";
     }
 
     private static String resolveLookupKey(PsiElement element, @Nullable PsiElement originalElement) {
