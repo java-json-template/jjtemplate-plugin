@@ -29,6 +29,7 @@ public final class JjtemplateAnnotator implements Annotator {
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
     private static void highlightJsonLike(String text, AnnotationHolder holder, Set<String> localDefinitions) {
+        var rangeBindings = collectRangeBindings(text);
         var nesting = 0;
         var inString = false;
         var escaped = false;
@@ -55,7 +56,8 @@ public final class JjtemplateAnnotator implements Annotator {
                                 i + 1,
                                 holder,
                                 JjtemplateSyntaxHighlighter.OBJECT_KEY,
-                                localDefinitions
+                                localDefinitions,
+                                rangeBindings
                         );
                     } else {
                         highlightStringWithLookups(
@@ -64,7 +66,8 @@ public final class JjtemplateAnnotator implements Annotator {
                                 i + 1,
                                 holder,
                                 JjtemplateSyntaxHighlighter.JSON_STRING,
-                                localDefinitions
+                                localDefinitions,
+                                rangeBindings
                         );
                     }
                 }
@@ -158,7 +161,8 @@ public final class JjtemplateAnnotator implements Annotator {
                                                    int endExclusive,
                                                    AnnotationHolder holder,
                                                    TextAttributesKey plainTextStyle,
-                                                   Set<String> localDefinitions) {
+                                                   Set<String> localDefinitions,
+                                                   Set<String> rangeBindings) {
         var contentStart = start + 1;
         var contentEnd = Math.max(contentStart, endExclusive - 1);
         var cursor = start;
@@ -174,7 +178,14 @@ public final class JjtemplateAnnotator implements Annotator {
                 break;
             }
             annotateRange(holder, cursor, index, plainTextStyle);
-            highlightLookupTokens(text.substring(index, lookupEnd), index, holder, plainTextStyle, localDefinitions);
+            highlightLookupTokens(
+                    text.substring(index, lookupEnd),
+                    index,
+                    holder,
+                    plainTextStyle,
+                    localDefinitions,
+                    rangeBindings
+            );
             cursor = lookupEnd;
             index = lookupEnd;
         }
@@ -185,14 +196,31 @@ public final class JjtemplateAnnotator implements Annotator {
                                               int baseOffset,
                                               AnnotationHolder holder,
                                               TextAttributesKey fallbackStyle,
-                                              Set<String> localDefinitions) {
+                                              Set<String> localDefinitions,
+                                              Set<String> inheritedRangeBindings) {
         try {
             var tokens = new TemplateLexer(lookup).tokens();
-            highlightLookupTokenList(tokens, lookup, baseOffset, holder, fallbackStyle, localDefinitions);
+            highlightLookupTokenList(
+                    tokens,
+                    lookup,
+                    baseOffset,
+                    holder,
+                    fallbackStyle,
+                    localDefinitions,
+                    inheritedRangeBindings
+            );
         } catch (Exception ignored) {
             var normalizedTokens = tryLexWithEscapedApostropheNormalization(lookup);
             if (normalizedTokens != null) {
-                highlightLookupTokenList(normalizedTokens, lookup, baseOffset, holder, fallbackStyle, localDefinitions);
+                highlightLookupTokenList(
+                        normalizedTokens,
+                        lookup,
+                        baseOffset,
+                        holder,
+                        fallbackStyle,
+                        localDefinitions,
+                        inheritedRangeBindings
+                );
                 return;
             }
             highlightLookupFallback(lookup, baseOffset, holder, fallbackStyle);
@@ -204,7 +232,10 @@ public final class JjtemplateAnnotator implements Annotator {
                                                  int baseOffset,
                                                  AnnotationHolder holder,
                                                  TextAttributesKey fallbackStyle,
-                                                 Set<String> localDefinitions) {
+                                                 Set<String> localDefinitions,
+                                                 Set<String> inheritedRangeBindings) {
+        var rangeBindings = new HashSet<>(inheritedRangeBindings);
+        rangeBindings.addAll(collectRangeBindings(tokens));
         for (var token : tokens) {
             if (token.type == TokenType.STRING) {
                 annotateRange(holder, baseOffset + token.start, baseOffset + token.end, JjtemplateSyntaxHighlighter.JSON_STRING);
@@ -214,7 +245,8 @@ public final class JjtemplateAnnotator implements Annotator {
                         token.end,
                         baseOffset,
                         holder,
-                        localDefinitions
+                        localDefinitions,
+                        rangeBindings
                 );
                 continue;
             }
@@ -224,7 +256,6 @@ public final class JjtemplateAnnotator implements Annotator {
             }
             annotateRange(holder, baseOffset + token.start, baseOffset + token.end, key);
         }
-        var rangeBindings = collectRangeBindings(tokens);
         highlightTemplateIdentifiers(tokens, baseOffset, holder, localDefinitions, rangeBindings);
     }
 
@@ -286,7 +317,8 @@ public final class JjtemplateAnnotator implements Annotator {
                                                             int stringTokenEnd,
                                                             int baseOffset,
                                                             AnnotationHolder holder,
-                                                            Set<String> localDefinitions) {
+                                                            Set<String> localDefinitions,
+                                                            Set<String> rangeBindings) {
         if (stringTokenEnd - stringTokenStart < 2) {
             return;
         }
@@ -314,7 +346,8 @@ public final class JjtemplateAnnotator implements Annotator {
                     baseOffset + stringTokenStart + i,
                     holder,
                     JjtemplateSyntaxHighlighter.JSON_STRING,
-                    localDefinitions
+                    localDefinitions,
+                    rangeBindings
             );
             i = nestedEnd - 1;
         }
@@ -653,6 +686,14 @@ public final class JjtemplateAnnotator implements Annotator {
         return bindings;
     }
 
+    private static Set<String> collectRangeBindings(String source) {
+        try {
+            return collectRangeBindings(new TemplateLexer(source).tokens());
+        } catch (Exception ignored) {
+            return Set.of();
+        }
+    }
+
     private static Set<String> extractLocalDefinitions(String source) {
         try {
             var script = MAPPER.readTree(source);
@@ -900,14 +941,24 @@ public final class JjtemplateAnnotator implements Annotator {
             if (token.type != TokenType.IDENT) {
                 continue;
             }
-            var key = isDefinitionName(tokens, i) || isRangeBindingName(tokens, i)
-                    ? JjtemplateSyntaxHighlighter.OBJECT_KEY
-                    : isFunctionCall(tokens, i)
-                    ? JjtemplateSyntaxHighlighter.TEMPLATE_FUNCTION
-                    : isContextVariable(tokens, i, localDefinitions, rangeBindings)
-                    ? JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE
-                    : JjtemplateSyntaxHighlighter.TEMPLATE_VARIABLE;
+            var key = identifierTextAttributes(tokens, i, localDefinitions, rangeBindings);
             annotateRange(holder, baseOffset + token.start, baseOffset + token.end, key);
         }
+    }
+
+    static TextAttributesKey identifierTextAttributes(List<Token> tokens,
+                                                      int identifierIndex,
+                                                      Set<String> localDefinitions,
+                                                      Set<String> rangeBindings) {
+        if (isDefinitionName(tokens, identifierIndex) || isRangeBindingName(tokens, identifierIndex)) {
+            return JjtemplateSyntaxHighlighter.OBJECT_KEY;
+        }
+        if (isFunctionCall(tokens, identifierIndex)) {
+            return JjtemplateSyntaxHighlighter.TEMPLATE_FUNCTION;
+        }
+        if (isContextVariable(tokens, identifierIndex, localDefinitions, rangeBindings)) {
+            return JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE;
+        }
+        return JjtemplateSyntaxHighlighter.TEMPLATE_VARIABLE;
     }
 }
