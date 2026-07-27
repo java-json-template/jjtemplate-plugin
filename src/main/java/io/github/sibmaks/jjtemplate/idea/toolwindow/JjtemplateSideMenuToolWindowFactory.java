@@ -8,11 +8,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.intellij.json.JsonFileType;
+import com.intellij.json.JsonLanguage;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.editor.EditorFactory;
+import com.intellij.openapi.editor.colors.EditorColorsManager;
+import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
@@ -21,19 +24,35 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.ui.EditorTextField;
+import com.intellij.ui.LanguageTextField;
 import com.intellij.ui.content.ContentFactory;
+import com.intellij.util.ui.JBUI;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateCompiler;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateScript;
+import io.github.sibmaks.jjtemplate.compiler.impl.CompiledTemplateImpl;
+import io.github.sibmaks.jjtemplate.compiler.optimizer.CompiledTemplateFolder;
+import io.github.sibmaks.jjtemplate.compiler.optimizer.TemplateOptimizer;
+import io.github.sibmaks.jjtemplate.compiler.optimizer.UnusedVariableNodeEliminator;
+import io.github.sibmaks.jjtemplate.compiler.optimizer.VariableNodeInliner;
+import io.github.sibmaks.jjtemplate.compiler.runtime.RootTemplateExpressionFactory;
+import io.github.sibmaks.jjtemplate.compiler.runtime.TemplateEvaluationOptions;
+import io.github.sibmaks.jjtemplate.compiler.runtime.TemplateExpressionFactory;
+import io.github.sibmaks.jjtemplate.compiler.runtime.expression.object.ObjectFieldElement;
+import io.github.sibmaks.jjtemplate.compiler.runtime.visitor.TemplateTypeInferenceVisitor;
 import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
 import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
 import io.github.sibmaks.jjtemplate.lexer.api.Keyword;
 import io.github.sibmaks.jjtemplate.lexer.api.Token;
 import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
+import io.github.sibmaks.jjtemplate.parser.ExpressionParser;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -43,6 +62,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFactory, DumbAware {
@@ -56,15 +76,14 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
 
     private static @NotNull JPanel createCompilerPanel(@NotNull Project project) {
         try {
-            var contextDocument = EditorFactory.getInstance().createDocument("{}");
-            var contextInput = new EditorTextField(contextDocument, project, JsonFileType.INSTANCE, false, false);
+            var contextInput = createContextInput(project);
             contextInput.setPreferredSize(new Dimension(320, 220));
 
-            var panel = new JPanel(new BorderLayout(0, 8));
-            panel.add(new JLabel("Context JSON"), BorderLayout.NORTH);
+            var panel = createSectionPanel();
+            panel.add(createSectionLabel("Context JSON"), BorderLayout.NORTH);
             panel.add(contextInput, BorderLayout.CENTER);
 
-            var actionsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            var actionsPanel = createActionsPanel();
             var formatContextButton = new JButton("Format JSON");
             formatContextButton.addActionListener(event -> formatContextJson(project, contextInput));
             var generateContextButton = new JButton("Generate Context");
@@ -81,6 +100,79 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             fallback.add(new JLabel("Unable to initialize JJTemplate panel: " + getRootMessage(exception)), BorderLayout.NORTH);
             return fallback;
         }
+    }
+
+    private static @NotNull EditorTextField createContextInput(@NotNull Project project) {
+        return new LanguageTextField(JsonLanguage.INSTANCE, project, "{}", false) {
+            @Override
+            protected EditorEx createEditor() {
+                var editor = super.createEditor();
+                var colorScheme = EditorColorsManager.getInstance().getGlobalScheme();
+                editor.setColorsScheme(colorScheme);
+                editor.setBackgroundColor(colorScheme.getDefaultBackground());
+                var settings = editor.getSettings();
+                settings.setLineNumbersShown(true);
+                settings.setLineMarkerAreaShown(true);
+                settings.setGutterIconsShown(true);
+                settings.setFoldingOutlineShown(true);
+                settings.setIndentGuidesShown(true);
+                settings.setCaretRowShown(true);
+                settings.setAdditionalPageAtBottom(false);
+                editor.setVerticalScrollbarVisible(true);
+                editor.setHorizontalScrollbarVisible(true);
+                return editor;
+            }
+        };
+    }
+
+    private static @NotNull JPanel createOptimizerPanel(@NotNull Project project) {
+        var panel = createSectionPanel();
+        panel.add(createSectionLabel("Optimizers"), BorderLayout.NORTH);
+
+        var optimizerList = new JPanel();
+        optimizerList.setLayout(new BoxLayout(optimizerList, BoxLayout.Y_AXIS));
+        var controls = List.of(
+                createOptimizerControl("Constant folding", CompiledTemplateFolder::new),
+                createOptimizerControl("Variable inlining", VariableNodeInliner::new),
+                createOptimizerControl("Unused variable elimination", UnusedVariableNodeEliminator::new)
+        );
+        for (var control : controls) {
+            optimizerList.add(control.checkBox());
+        }
+        panel.add(optimizerList, BorderLayout.CENTER);
+
+        var actionsPanel = createActionsPanel();
+        var optimizeButton = new JButton("Optimize");
+        optimizeButton.addActionListener(event -> optimizeCurrentFile(project, controls));
+        actionsPanel.add(optimizeButton);
+        panel.add(actionsPanel, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    private static @NotNull JPanel createSectionPanel() {
+        var panel = new JPanel(new BorderLayout());
+        panel.setBorder(JBUI.Borders.empty(8));
+        return panel;
+    }
+
+    private static @NotNull JLabel createSectionLabel(@NotNull String text) {
+        var label = new JLabel(text);
+        label.setVerticalAlignment(SwingConstants.CENTER);
+        label.setBorder(JBUI.Borders.emptyBottom(8));
+        return label;
+    }
+
+    private static @NotNull JPanel createActionsPanel() {
+        var panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        panel.setBorder(JBUI.Borders.emptyTop(8));
+        return panel;
+    }
+
+    private static @NotNull OptimizerControl createOptimizerControl(
+            @NotNull String name,
+            @NotNull Supplier<TemplateOptimizer> factory
+    ) {
+        return new OptimizerControl(new JCheckBox(name, true), factory);
     }
 
     private static void compileCurrentFile(@NotNull Project project, @NotNull EditorTextField contextInput) {
@@ -106,14 +198,109 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             var rendered = compiled.render(context);
             var output = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(rendered);
 
-            var outputName = sourceFile.getNameWithoutExtension() + "-compiled.json";
-            var outputFile = new LightVirtualFile(outputName, JsonFileType.INSTANCE, output);
-            outputFile.setWritable(false);
-            FileEditorManager.getInstance(project).openFile(outputFile, true, true);
+            openReadOnlyOutput(
+                    project,
+                    sourceFile.getNameWithoutExtension() + "-compiled.json",
+                    JsonFileType.INSTANCE,
+                    output
+            );
         } catch (Exception exception) {
             LOG.error("JJTemplate compilation failed", exception);
             showError(project, "Compilation failed:\n" + getRootMessage(exception));
         }
+    }
+
+    private static void optimizeCurrentFile(@NotNull Project project, @NotNull List<OptimizerControl> controls) {
+        try {
+            var sourceFile = getCurrentJjtemplateFile(project);
+            if (sourceFile == null) {
+                return;
+            }
+            var source = readFileText(sourceFile);
+            if (source == null) {
+                showError(project, "Unable to read current file.");
+                return;
+            }
+
+            var optimizers = controls.stream()
+                    .filter(control -> control.checkBox().isSelected())
+                    .map(control -> control.factory().get())
+                    .toList();
+            var output = optimizeSource(source, optimizers, JjtemplateIndentOptions.getIndent(project));
+            openReadOnlyOutput(
+                    project,
+                    sourceFile.getNameWithoutExtension() + "-optimized.jjt",
+                    JjtemplateFileType.INSTANCE,
+                    output
+            );
+        } catch (Exception exception) {
+            LOG.error("JJTemplate optimization failed", exception);
+            showError(project, "Optimization failed:\n" + getRootMessage(exception));
+        }
+    }
+
+    static @NotNull String optimizeSource(@NotNull String source,
+                                          @NotNull List<TemplateOptimizer> optimizers,
+                                          int jsonIndent) throws Exception {
+        var script = MAPPER.readValue(source, TemplateScript.class);
+        var compiled = applyOptimizers(compileUnoptimized(script), optimizers);
+        var optimizedScript = OptimizedTemplateRenderer.render(compiled);
+        return createPrettyWriter(jsonIndent).writeValueAsString(optimizedScript);
+    }
+
+    private static @NotNull CompiledTemplateImpl compileUnoptimized(@NotNull TemplateScript script) {
+        var expressionFactory = new TemplateExpressionFactory(TemplateEvaluationOptions.getDefault());
+        var rootFactory = new RootTemplateExpressionFactory(
+                new TemplateTypeInferenceVisitor(),
+                expressionFactory,
+                new ExpressionParser(),
+                false
+        );
+        var internalVariables = new ArrayList<ObjectFieldElement>();
+        var definitions = script.getDefinitions();
+        if (definitions != null) {
+            for (var definition : definitions) {
+                var compiledDefinition = rootFactory.compileDefinitionObject(definition);
+                for (var element : compiledDefinition.getElements()) {
+                    if (!(element instanceof ObjectFieldElement)) {
+                        throw new IllegalArgumentException("Unsupported definition element: " + element.getClass());
+                    }
+                    internalVariables.add((ObjectFieldElement) element);
+                }
+            }
+        }
+        if (script.getTemplate() == null) {
+            throw new IllegalArgumentException("'template' field required");
+        }
+        return new CompiledTemplateImpl(internalVariables, rootFactory.compile(script.getTemplate()));
+    }
+
+    private static @NotNull CompiledTemplateImpl applyOptimizers(
+            @NotNull CompiledTemplateImpl compiled,
+            @NotNull List<TemplateOptimizer> optimizers
+    ) {
+        var optimized = compiled;
+        boolean repeat;
+        do {
+            repeat = false;
+            for (var optimizer : optimizers) {
+                var previous = optimized;
+                optimized = optimizer.optimize(optimized);
+                if (previous != optimized) {
+                    repeat = true;
+                }
+            }
+        } while (repeat);
+        return optimized;
+    }
+
+    private static void openReadOnlyOutput(@NotNull Project project,
+                                           @NotNull String outputName,
+                                           @NotNull FileType fileType,
+                                           @NotNull String output) {
+        var outputFile = new LightVirtualFile(outputName, fileType, output);
+        outputFile.setWritable(false);
+        FileEditorManager.getInstance(project).openFile(outputFile, true, true);
     }
 
     private static void generateContext(@NotNull Project project, @NotNull EditorTextField contextInput) {
@@ -494,13 +681,21 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        var content = ContentFactory.getInstance().createContent(createCompilerPanel(project), "Compiler", false);
-        toolWindow.getContentManager().addContent(content);
+        var compiler = ContentFactory.getInstance().createContent(createCompilerPanel(project), "Compiler", false);
+        toolWindow.getContentManager().addContent(compiler);
+        var optimizer = ContentFactory.getInstance().createContent(createOptimizerPanel(project), "Optimizer", false);
+        toolWindow.getContentManager().addContent(optimizer);
     }
 
     private record IndexedToken(int index, Token token) {
         private TokenType type() {
             return token.type;
         }
+    }
+
+    private record OptimizerControl(
+            JCheckBox checkBox,
+            Supplier<TemplateOptimizer> factory
+    ) {
     }
 }
