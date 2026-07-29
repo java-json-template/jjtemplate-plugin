@@ -4,6 +4,7 @@ import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -96,6 +97,32 @@ class UnusedDefinitionAnalyzerTest {
                 """;
 
         assertEquals(List.of("_valid123"), findUnusedNames(source));
+    }
+
+    @Test
+    void exposesRangeBindingsOnlyInsideTheirValueScope() {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "{{ parts range item,index of .items }}": [
+                        "{{ .item }}",
+                        "{{ .index }}"
+                      ]
+                    }
+                  ],
+                  "template": "{{ .outside }}"
+                }
+                """;
+
+        assertEquals(
+                Set.of("item", "index"),
+                UnusedDefinitionAnalyzer.findRangeBindingsAt(source, source.lastIndexOf(".item"))
+        );
+        assertEquals(
+                Set.of(),
+                UnusedDefinitionAnalyzer.findRangeBindingsAt(source, source.indexOf(".outside"))
+        );
     }
 
     private static List<String> findUnusedNames(String source) {

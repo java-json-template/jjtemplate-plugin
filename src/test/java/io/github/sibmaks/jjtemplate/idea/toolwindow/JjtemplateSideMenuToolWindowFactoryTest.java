@@ -13,10 +13,231 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JjtemplateSideMenuToolWindowFactoryTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    @Test
+    void compileSourceSupportsLegacyDefinitionExpressions() throws Exception {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "value": "text"
+                    },
+                    {
+                      "result switch .value": {
+                        "'text'": "matched",
+                        "else": "fallback"
+                      }
+                    }
+                  ],
+                  "template": "{{ .result }}"
+                }
+                """;
+
+        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, "{}", true);
+
+        assertEquals("matched", rendered);
+    }
+
+    @Test
+    void compileSourceUsesModernCompilationByDefault() throws Exception {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "value": "text"
+                    },
+                    {
+                      "result switch .value": {
+                        "'text'": "matched",
+                        "else": "fallback"
+                      }
+                    }
+                  ],
+                  "template": "{{ .result }}"
+                }
+                """;
+
+        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, "{}");
+
+        assertNull(rendered);
+    }
+
+    @Test
+    void compileSourceResolvesFunctionMocksFromContextJson() throws Exception {
+        var source = """
+                {
+                  "template": "{{ .context.do('hello') }}: {{ .context.do(42) }}"
+                }
+                """;
+        var contextJson = """
+                {
+                  "context": {
+                    "do": [
+                      {
+                        "in": ["hello"],
+                        "out": "demo"
+                      },
+                      {
+                        "in": 42,
+                        "out": false
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, contextJson);
+
+        assertEquals("demo: false", rendered);
+    }
+
+    @Test
+    void compileSourceMatchesCompleteFunctionArgumentList() throws Exception {
+        var source = """
+                {
+                  "template": "{{ .service.combine('answer', 42) }}"
+                }
+                """;
+        var contextJson = """
+                {
+                  "service": {
+                    "name": "demo",
+                    "combine": [
+                      {
+                        "in": ["answer", 42],
+                        "out": {
+                          "matched": true
+                        }
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, contextJson);
+
+        assertEquals(Map.of("matched", true), rendered);
+    }
+
+    @Test
+    void compileSourceReportsFunctionCallsWithoutMatchingMockCase() {
+        var source = """
+                {
+                  "template": "{{ .context.do('missing') }}"
+                }
+                """;
+        var contextJson = """
+                {
+                  "context": {
+                    "do": [
+                      {
+                        "in": "known",
+                        "out": "demo"
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        var exception = assertThrows(
+                Exception.class,
+                () -> JjtemplateSideMenuToolWindowFactory.compileSource(source, contextJson)
+        );
+
+        assertTrue(hasMessage(exception,
+                "No function mock case matched method 'do' with arguments [missing]"
+        ));
+    }
+
+    private static boolean hasMessage(Throwable throwable, String expected) {
+        var cursor = throwable;
+        while (cursor != null) {
+            if (cursor.getMessage() != null && cursor.getMessage().contains(expected)) {
+                return true;
+            }
+            cursor = cursor.getCause();
+        }
+        return false;
+    }
+
+    @Test
+    void buildContextTemplateGeneratesStaticFunctionMockScenarios() throws Exception {
+        var source = """
+                {
+                  "template": [
+                    "{{ .context.do('hello') }}",
+                    "{{ .context.do(42) }}",
+                    "{{ .context.do('hello') }}",
+                    "{{ .service.combine('answer', 42) }}",
+                    "{{ .service.ping() }}"
+                  ]
+                }
+                """;
+        var expected = MAPPER.readTree("""
+                {
+                  "context": {
+                    "do": [
+                      {
+                        "in": ["hello"],
+                        "out": null
+                      },
+                      {
+                        "in": [42],
+                        "out": null
+                      }
+                    ]
+                  },
+                  "service": {
+                    "combine": [
+                      {
+                        "in": ["answer", 42],
+                        "out": null
+                      }
+                    ],
+                    "ping": [
+                      {
+                        "in": [],
+                        "out": null
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source);
+
+        assertEquals(expected.toString(), MAPPER.writeValueAsString(generated));
+    }
+
+    @Test
+    void buildContextTemplateLeavesDynamicFunctionCallAsPlaceholder() throws Exception {
+        var source = """
+                {
+                  "template": "{{ .service.find(.request.id) }}"
+                }
+                """;
+
+        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source);
+
+        var expected = MAPPER.readTree("""
+                {
+                  "service": {
+                    "find": null
+                  },
+                  "request": {
+                    "id": null
+                  }
+                }
+                """);
+
+        assertEquals(expected, MAPPER.valueToTree(generated));
+    }
 
     @Test
     void optimizeSourceAppliesInliningAndUnusedDefinitionElimination() throws Exception {

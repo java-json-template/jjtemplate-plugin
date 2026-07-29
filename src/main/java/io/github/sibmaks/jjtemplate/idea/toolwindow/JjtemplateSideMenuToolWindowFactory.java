@@ -27,6 +27,7 @@ import com.intellij.ui.EditorTextField;
 import com.intellij.ui.LanguageTextField;
 import com.intellij.ui.content.ContentFactory;
 import com.intellij.util.ui.JBUI;
+import io.github.sibmaks.jjtemplate.compiler.api.TemplateCompileOptions;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateCompiler;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateScript;
 import io.github.sibmaks.jjtemplate.compiler.impl.CompiledTemplateImpl;
@@ -38,6 +39,7 @@ import io.github.sibmaks.jjtemplate.compiler.runtime.RootTemplateExpressionFacto
 import io.github.sibmaks.jjtemplate.compiler.runtime.TemplateEvaluationOptions;
 import io.github.sibmaks.jjtemplate.compiler.runtime.TemplateExpressionFactory;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.object.ObjectFieldElement;
+import io.github.sibmaks.jjtemplate.compiler.runtime.reflection.MethodResolver;
 import io.github.sibmaks.jjtemplate.compiler.runtime.visitor.TemplateTypeInferenceVisitor;
 import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
 import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
@@ -56,7 +58,11 @@ import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,6 +76,11 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private static final TemplateCompiler COMPILER = TemplateCompiler.getInstance();
+    private static final TemplateCompiler LEGACY_COMPILER = TemplateCompiler.getInstance(
+            TemplateCompileOptions.builder()
+                    .definitionExpressionFallback(true)
+                    .build()
+    );
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
@@ -78,10 +89,15 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         try {
             var contextInput = createContextInput(project);
             contextInput.setPreferredSize(new Dimension(320, 220));
+            contextInput.setToolTipText("Function mock: \"method\": [{\"in\": [arguments], \"out\": result}]");
 
             var panel = createSectionPanel();
-            panel.add(createSectionLabel("Context JSON"), BorderLayout.NORTH);
+            panel.add(createSectionLabel("Context JSON (supports function mocks)"), BorderLayout.NORTH);
             panel.add(contextInput, BorderLayout.CENTER);
+
+            var legacyMode = new JCheckBox("Compile in legacy mode");
+            legacyMode.setToolTipText("Compile unwrapped switch and range definition keys as expressions");
+            legacyMode.setBorder(JBUI.Borders.emptyTop(8));
 
             var actionsPanel = createActionsPanel();
             var formatContextButton = new JButton("Format JSON");
@@ -89,11 +105,19 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             var generateContextButton = new JButton("Generate Context");
             generateContextButton.addActionListener(event -> generateContext(project, contextInput));
             var compileButton = new JButton("Compile");
-            compileButton.addActionListener(event -> compileCurrentFile(project, contextInput));
+            compileButton.addActionListener(event -> compileCurrentFile(
+                    project,
+                    contextInput,
+                    legacyMode.isSelected()
+            ));
             actionsPanel.add(formatContextButton);
             actionsPanel.add(generateContextButton);
             actionsPanel.add(compileButton);
-            panel.add(actionsPanel, BorderLayout.SOUTH);
+
+            var footer = new JPanel(new BorderLayout());
+            footer.add(legacyMode, BorderLayout.NORTH);
+            footer.add(actionsPanel, BorderLayout.SOUTH);
+            panel.add(footer, BorderLayout.SOUTH);
             return panel;
         } catch (Exception exception) {
             var fallback = new JPanel(new BorderLayout());
@@ -175,7 +199,11 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         return new OptimizerControl(new JCheckBox(name, true), factory);
     }
 
-    private static void compileCurrentFile(@NotNull Project project, @NotNull EditorTextField contextInput) {
+    private static void compileCurrentFile(
+            @NotNull Project project,
+            @NotNull EditorTextField contextInput,
+            boolean legacyMode
+    ) {
         try {
             var contextJson = formatContextJson(project, contextInput);
             if (contextJson == null) {
@@ -192,10 +220,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                 return;
             }
 
-            var script = MAPPER.readValue(source, TemplateScript.class);
-            var compiled = COMPILER.compile(script);
-            var context = MAPPER.readValue(contextJson, MAP_TYPE);
-            var rendered = compiled.render(context);
+            var rendered = compileSource(source, contextJson, legacyMode);
             var output = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(rendered);
 
             openReadOnlyOutput(
@@ -208,6 +233,73 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             LOG.error("JJTemplate compilation failed", exception);
             showError(project, "Compilation failed:\n" + getRootMessage(exception));
         }
+    }
+
+    static Object compileSource(@NotNull String source, @NotNull String contextJson) throws Exception {
+        return compileSource(source, contextJson, false);
+    }
+
+    static Object compileSource(
+            @NotNull String source,
+            @NotNull String contextJson,
+            boolean legacyMode
+    ) throws Exception {
+        var script = MAPPER.readValue(source, TemplateScript.class);
+        var compiler = legacyMode ? LEGACY_COMPILER : COMPILER;
+        var compiled = compiler.compile(script);
+        var context = adaptFunctionMocks(MAPPER.readValue(contextJson, MAP_TYPE));
+        return compiled.render(context);
+    }
+
+    private static Map<String, Object> adaptFunctionMocks(Map<String, Object> context) {
+        return new MockContextObject(context);
+    }
+
+    private static Object adaptFunctionMockValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            var stringKeyedMap = new LinkedHashMap<String, Object>(map.size());
+            for (var entry : map.entrySet()) {
+                stringKeyedMap.put(String.valueOf(entry.getKey()), adaptFunctionMockValue(entry.getValue()));
+            }
+            return new MockContextObject(stringKeyedMap);
+        }
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .map(JjtemplateSideMenuToolWindowFactory::adaptFunctionMockValue)
+                    .toList();
+        }
+        return value;
+    }
+
+    private static boolean mockValuesEqual(Object expected, Object actual) {
+        if (expected instanceof Number expectedNumber && actual instanceof Number actualNumber) {
+            var expectedDecimal = new BigDecimal(expectedNumber.toString());
+            var actualDecimal = new BigDecimal(actualNumber.toString());
+            return expectedDecimal.compareTo(actualDecimal) == 0;
+        }
+        if (expected instanceof List<?> expectedList && actual instanceof List<?> actualList) {
+            if (expectedList.size() != actualList.size()) {
+                return false;
+            }
+            for (var i = 0; i < expectedList.size(); i++) {
+                if (!mockValuesEqual(expectedList.get(i), actualList.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (expected instanceof Map<?, ?> expectedMap && actual instanceof Map<?, ?> actualMap) {
+            if (!expectedMap.keySet().equals(actualMap.keySet())) {
+                return false;
+            }
+            for (var entry : expectedMap.entrySet()) {
+                if (!mockValuesEqual(entry.getValue(), actualMap.get(entry.getKey()))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return java.util.Objects.equals(expected, actual);
     }
 
     private static void optimizeCurrentFile(@NotNull Project project, @NotNull List<OptimizerControl> controls) {
@@ -346,7 +438,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         });
     }
 
-    private static Map<String, Object> buildContextTemplate(@NotNull String source) {
+    static Map<String, Object> buildContextTemplate(@NotNull String source) {
         var root = new LinkedHashMap<String, Object>();
         try {
             var scriptNode = MAPPER.readTree(source);
@@ -384,7 +476,12 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                 if (!isExternalRootVariable(tokens, i, localDefinitions, rangeBindings)) {
                     continue;
                 }
-                addPath(root, readPathSegments(tokens, i));
+                var staticMethodCall = readStaticMethodCall(tokens, i);
+                if (staticMethodCall == null) {
+                    addPath(root, readPathSegments(tokens, i));
+                } else {
+                    addFunctionMockScenario(root, staticMethodCall);
+                }
             }
         } catch (Exception ignored) {
             // Keep partial context if a fragment cannot be parsed.
@@ -557,6 +654,80 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         return segments.toArray(String[]::new);
     }
 
+    private static StaticMethodCall readStaticMethodCall(@NotNull List<Token> tokens, int rootIndex) {
+        var segments = new ArrayList<String>();
+        segments.add(tokens.get(rootIndex).lexeme);
+        var cursor = rootIndex;
+        while (true) {
+            var next = findNextNonTextToken(tokens, cursor + 1);
+            if (next == null) {
+                return null;
+            }
+            if (next.type() == TokenType.LPAREN) {
+                var arguments = readStaticArguments(tokens, next.index);
+                return arguments == null
+                        ? null
+                        : new StaticMethodCall(segments.toArray(String[]::new), arguments);
+            }
+            if (next.type() != TokenType.DOT) {
+                return null;
+            }
+            var segment = findNextNonTextToken(tokens, next.index + 1);
+            if (segment == null || segment.type() != TokenType.IDENT) {
+                return null;
+            }
+            segments.add(segment.token.lexeme);
+            cursor = segment.index;
+        }
+    }
+
+    private static List<Object> readStaticArguments(@NotNull List<Token> tokens, int openParenthesisIndex) {
+        var arguments = new ArrayList<>();
+        var cursor = findNextNonTextToken(tokens, openParenthesisIndex + 1);
+        if (cursor == null) {
+            return null;
+        }
+        if (cursor.type() == TokenType.RPAREN) {
+            return arguments;
+        }
+        while (true) {
+            var literal = readLiteral(cursor.token);
+            if (literal == StaticArgument.NOT_LITERAL) {
+                return null;
+            }
+            arguments.add(literal == StaticArgument.NULL ? null : literal);
+
+            cursor = findNextNonTextToken(tokens, cursor.index + 1);
+            if (cursor == null) {
+                return null;
+            }
+            if (cursor.type() == TokenType.RPAREN) {
+                return arguments;
+            }
+            if (cursor.type() != TokenType.COMMA) {
+                return null;
+            }
+            cursor = findNextNonTextToken(tokens, cursor.index + 1);
+            if (cursor == null) {
+                return null;
+            }
+        }
+    }
+
+    private static Object readLiteral(Token token) {
+        return switch (token.type) {
+            case STRING -> token.lexeme.contains("{{")
+                    ? StaticArgument.NOT_LITERAL
+                    : token.lexeme;
+            case NUMBER -> token.lexeme.contains(".")
+                    ? new BigDecimal(token.lexeme)
+                    : new BigInteger(token.lexeme);
+            case BOOLEAN -> Boolean.valueOf(token.lexeme);
+            case NULL -> StaticArgument.NULL;
+            default -> StaticArgument.NOT_LITERAL;
+        };
+    }
+
     private static Set<String> collectRangeBindings(@NotNull List<Token> tokens) {
         var bindings = new HashSet<String>();
         for (int i = 0; i < tokens.size(); i++) {
@@ -615,7 +786,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             var leaf = i == segments.length - 1;
             var existing = cursor.get(segment);
             if (leaf) {
-                if (!(existing instanceof Map<?, ?>)) {
+                if (!cursor.containsKey(segment)) {
                     cursor.put(segment, null);
                 }
                 return;
@@ -632,6 +803,49 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             cursor.put(segment, next);
             cursor = next;
         }
+    }
+
+    private static void addFunctionMockScenario(
+            @NotNull Map<String, Object> root,
+            @NotNull StaticMethodCall methodCall
+    ) {
+        Map<String, Object> cursor = root;
+        var segments = methodCall.path();
+        for (var i = 0; i < segments.length - 1; i++) {
+            var segment = segments[i];
+            var existing = cursor.get(segment);
+            if (existing instanceof Map<?, ?> existingMap) {
+                @SuppressWarnings("unchecked")
+                var cast = (Map<String, Object>) existingMap;
+                cursor = cast;
+                continue;
+            }
+            var next = new LinkedHashMap<String, Object>();
+            cursor.put(segment, next);
+            cursor = next;
+        }
+
+        var methodName = segments[segments.length - 1];
+        var existing = cursor.get(methodName);
+        List<Object> scenarios;
+        if (existing instanceof List<?> existingList) {
+            @SuppressWarnings("unchecked")
+            var cast = (List<Object>) existingList;
+            scenarios = cast;
+        } else {
+            scenarios = new ArrayList<>();
+            cursor.put(methodName, scenarios);
+        }
+        for (var item : scenarios) {
+            if (item instanceof Map<?, ?> scenario
+                    && mockValuesEqual(scenario.get("in"), methodCall.arguments())) {
+                return;
+            }
+        }
+        var scenario = new LinkedHashMap<String, Object>();
+        scenario.put("in", methodCall.arguments());
+        scenario.put("out", null);
+        scenarios.add(scenario);
     }
 
     private static String formatContextJson(@NotNull Project project, @NotNull EditorTextField contextInput) {
@@ -690,6 +904,58 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     private record IndexedToken(int index, Token token) {
         private TokenType type() {
             return token.type;
+        }
+    }
+
+    private record StaticMethodCall(String[] path, List<Object> arguments) {
+    }
+
+    private enum StaticArgument {
+        NULL,
+        NOT_LITERAL
+    }
+
+    private static final class MockContextObject extends AbstractMap<String, Object> implements MethodResolver {
+        private final Map<String, Object> values;
+
+        private MockContextObject(Map<String, Object> source) {
+            values = new LinkedHashMap<>(source.size());
+            for (var entry : source.entrySet()) {
+                values.put(entry.getKey(), adaptFunctionMockValue(entry.getValue()));
+            }
+        }
+
+        @Override
+        public Object resolve(String methodName, Object[] args) {
+            var definition = values.get(methodName);
+            if (!(definition instanceof List<?> cases)) {
+                throw new IllegalArgumentException("No function mock configured for method '" + methodName + "'");
+            }
+            for (var item : cases) {
+                if (!(item instanceof Map<?, ?> functionCase)
+                        || !functionCase.containsKey("in")
+                        || !functionCase.containsKey("out")) {
+                    throw new IllegalArgumentException(
+                            "Invalid function mock for method '" + methodName + "': each case requires 'in' and 'out'"
+                    );
+                }
+                var input = functionCase.get("in");
+                var expectedArgs = input instanceof List<?> list
+                        ? list
+                        : Collections.singletonList(input);
+                if (mockValuesEqual(expectedArgs, java.util.Arrays.asList(args))) {
+                    return functionCase.get("out");
+                }
+            }
+            throw new IllegalArgumentException(
+                    "No function mock case matched method '" + methodName
+                            + "' with arguments " + java.util.Arrays.asList(args)
+            );
+        }
+
+        @Override
+        public @NotNull Set<Entry<String, Object>> entrySet() {
+            return values.entrySet();
         }
     }
 

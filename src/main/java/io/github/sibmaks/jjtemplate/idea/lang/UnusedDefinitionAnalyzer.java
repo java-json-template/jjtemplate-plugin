@@ -8,6 +8,7 @@ import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -27,6 +28,23 @@ final class UnusedDefinitionAnalyzer {
         return metadata.definitions().stream()
                 .filter(definition -> !usedNames.contains(definition.name()))
                 .toList();
+    }
+
+    static Set<String> findRangeBindingsAt(String source, int offset) {
+        var bindings = new LinkedHashSet<String>();
+        for (var rangeScope : findRangeScopes(source)) {
+            if (offset >= rangeScope.start() && offset < rangeScope.end()) {
+                bindings.addAll(rangeScope.bindings());
+            }
+        }
+        return bindings;
+    }
+
+    static List<RangeScope> findRangeScopes(String source) {
+        if (!isValidJson(source)) {
+            return List.of();
+        }
+        return new JsonStructureParser(source).parse().rangeScopes();
     }
 
     private static boolean isValidJson(String source) {
@@ -88,7 +106,7 @@ final class UnusedDefinitionAnalyzer {
     private record AnalysisMetadata(List<UnusedDefinition> definitions, List<RangeScope> rangeScopes) {
     }
 
-    private record RangeScope(int start, int end, Set<String> bindings) {
+    record RangeScope(int start, int end, Set<String> bindings) {
     }
 
     private record JsonString(String value, int contentStart, int contentEnd) {

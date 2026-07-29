@@ -1,3 +1,5 @@
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+
 plugins {
     id("java")
     id("jacoco")
@@ -19,7 +21,10 @@ dependencies {
     intellijPlatform {
         intellijIdeaCommunity("2024.2")
         bundledPlugin("com.intellij.java")
-        pluginModule(implementation("io.github.sibmaks.jjtemplate:jjtemplate:0.10.0"))
+        pluginModule(implementation("io.github.sibmaks.jjtemplate:jjtemplate:0.9.2"))
+        testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.JUnit5)
+        testFramework(TestFrameworkType.Plugin.Java)
     }
 
     testImplementation(platform("org.junit:junit-bom:5.14.4"))

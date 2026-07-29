@@ -1,9 +1,10 @@
-package io.github.sibmaks.jjtemplate.idea.docs;
+package io.github.sibmaks.jjtemplate.idea.completion;
 
 public record BuiltInFunctionInfo(
         String lookupKey,
         String namespace,
         String name,
+        String signature,
         String description,
         boolean lazy
 ) {

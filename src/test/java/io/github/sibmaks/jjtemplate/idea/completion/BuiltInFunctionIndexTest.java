@@ -1,7 +1,8 @@
-package io.github.sibmaks.jjtemplate.idea.docs;
+package io.github.sibmaks.jjtemplate.idea.completion;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,6 +22,23 @@ class BuiltInFunctionIndexTest {
 
         assertNotNull(function);
         assertFalse(function.lazy());
+    }
+
+    @Test
+    void exposesSignatureAndDescriptionForEveryBuiltInFunction() {
+        for (var function : BuiltInFunctionIndex.list()) {
+            assertFalse(function.signature().endsWith("(...)"), function.lookupKey());
+            assertFalse(function.description().equals("Built-in JJTemplate function."), function.lookupKey());
+        }
+    }
+
+    @Test
+    void exposesCastStringDocumentation() {
+        var function = BuiltInFunctionIndex.find("cast:str");
+
+        assertNotNull(function);
+        assertEquals("cast:str(value)", function.signature());
+        assertEquals("Converts a value to a string.", function.description());
     }
 
     private static void assertLazy(String name) {

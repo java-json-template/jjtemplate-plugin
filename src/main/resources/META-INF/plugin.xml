@@ -4,7 +4,7 @@
     <vendor email="sibmaks@gmail.com" url="https://github.com/sibmaks">sibmaks</vendor>
 
     <description><![CDATA[
-        Support for JJTemplate (*.jjt) files: syntax highlighting, completion and built-in function docs.
+        Support for JJTemplate (*.jjt) files: syntax highlighting and completion.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -24,8 +24,6 @@
                            implementationClass="io.github.sibmaks.jjtemplate.idea.lang.JjtemplateBraceMatcher"/>
         <completion.contributor language="JJTemplate"
                                 implementationClass="io.github.sibmaks.jjtemplate.idea.completion.JjtemplateCompletionContributor"/>
-        <lang.documentationProvider language="JJTemplate"
-                                    implementationClass="io.github.sibmaks.jjtemplate.idea.docs.JjtemplateDocumentationProvider"/>
         <annotator language="JJTemplate"
                    implementationClass="io.github.sibmaks.jjtemplate.idea.lang.JjtemplateAnnotator"/>
         <lang.foldingBuilder language="JJTemplate"

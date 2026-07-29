@@ -13,9 +13,10 @@ import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
 import io.github.sibmaks.jjtemplate.lexer.api.Keyword;
 import io.github.sibmaks.jjtemplate.lexer.api.Token;
 import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
-import io.github.sibmaks.jjtemplate.idea.docs.BuiltInFunctionIndex;
 import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateLanguage;
+import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateScopeAnalyzer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -43,6 +44,11 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
                         }
 
                         var namespaceContext = resolveNamespaceContext(parameters);
+                        if (namespaceContext != null) {
+                            addNamespaceFunctionCompletions(namespaceContext, result);
+                            return;
+                        }
+
                         for (var keyword : Keyword.values()) {
                             result.addElement(
                                     LookupElementBuilder.create(keyword.getLexem())
@@ -50,30 +56,35 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
                             );
                         }
 
-                        if (namespaceContext == null) {
-                            for (var function : BuiltInFunctionIndex.list()) {
-                                result.addElement(
-                                        LookupElementBuilder.create(function.presentableName())
-                                                .withTypeText("built-in function", true)
-                                );
-                            }
-                            return;
-                        }
-
-                        var namespaceResult = result.withPrefixMatcher(namespaceContext.functionPrefix());
                         for (var function : BuiltInFunctionIndex.list()) {
-                            if (!namespaceContext.namespace().equals(function.namespace())) {
-                                continue;
-                            }
-                            namespaceResult.addElement(
-                                    LookupElementBuilder.create(function.presentableName())
-                                            .withLookupString(function.name())
-                                            .withTypeText("built-in function", true)
-                            );
+                            result.addElement(createFunctionLookup(function, function.presentableName()));
                         }
                     }
                 }
         );
+    }
+
+    private static void addNamespaceFunctionCompletions(
+            @NotNull NamespaceContext namespaceContext,
+            @NotNull CompletionResultSet result
+    ) {
+        var namespaceResult = result.withPrefixMatcher(namespaceContext.functionPrefix());
+        for (var function : BuiltInFunctionIndex.list()) {
+            if (!namespaceContext.namespace().equals(function.namespace())) {
+                continue;
+            }
+            namespaceResult.addElement(createFunctionLookup(function, function.name())
+                    .withLookupString(function.presentableName()));
+        }
+    }
+
+    static LookupElementBuilder createFunctionLookup(
+            @NotNull BuiltInFunctionInfo function,
+            @NotNull String insertionText
+    ) {
+        return LookupElementBuilder.create(insertionText)
+                .withPresentableText(function.signature())
+                .withTypeText(function.description(), true);
     }
 
     private static void addDotVariableCompletions(@NotNull DotContext dotContext,
@@ -116,11 +127,12 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
             return null;
         }
 
+        var scope = JjtemplateScopeAnalyzer.analyze(source);
         var localVariables = new LinkedHashSet<>(extractLocalDefinitions(source));
-        var rangeBindings = collectRangeBindings(tokens, dotIndex);
+        var rangeBindings = scope.bindingsAt(offset);
         localVariables.addAll(rangeBindings);
 
-        var recentGlobalVariables = collectRecentGlobalVariables(tokens, dotIndex, localVariables, rangeBindings);
+        var recentGlobalVariables = collectRecentGlobalVariables(tokens, dotIndex, localVariables, scope);
         return new DotContext(localVariables, recentGlobalVariables);
     }
 
@@ -150,35 +162,10 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
         return depth > 0;
     }
 
-    private static Set<String> collectRangeBindings(List<Token> tokens, int upToTokenIndex) {
-        var bindings = new LinkedHashSet<String>();
-        for (int i = 0; i <= upToTokenIndex && i < tokens.size(); i++) {
-            var token = tokens.get(i);
-            if (token.type != TokenType.KEYWORD || !Keyword.RANGE.eq(token.lexeme)) {
-                continue;
-            }
-            var firstBindingIndex = findNextNonTextTokenIndex(tokens, i + 1, upToTokenIndex);
-            if (firstBindingIndex < 0 || tokens.get(firstBindingIndex).type != TokenType.IDENT) {
-                continue;
-            }
-            bindings.add(tokens.get(firstBindingIndex).lexeme);
-
-            var maybeCommaIndex = findNextNonTextTokenIndex(tokens, firstBindingIndex + 1, upToTokenIndex);
-            if (maybeCommaIndex < 0 || tokens.get(maybeCommaIndex).type != TokenType.COMMA) {
-                continue;
-            }
-            var secondBindingIndex = findNextNonTextTokenIndex(tokens, maybeCommaIndex + 1, upToTokenIndex);
-            if (secondBindingIndex >= 0 && tokens.get(secondBindingIndex).type == TokenType.IDENT) {
-                bindings.add(tokens.get(secondBindingIndex).lexeme);
-            }
-        }
-        return bindings;
-    }
-
     private static Set<String> collectRecentGlobalVariables(List<Token> tokens,
                                                             int dotTokenIndex,
                                                             Set<String> localVariables,
-                                                            Set<String> rangeBindings) {
+                                                            JjtemplateScopeAnalyzer.Scope scope) {
         var globals = new LinkedHashSet<String>();
         for (int i = dotTokenIndex - 1; i >= 0; i--) {
             var token = tokens.get(i);
@@ -188,7 +175,8 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
             if (!isRootVariable(tokens, i, dotTokenIndex)) {
                 continue;
             }
-            if (localVariables.contains(token.lexeme) || rangeBindings.contains(token.lexeme)) {
+            if (localVariables.contains(token.lexeme)
+                    || scope.isRangeBindingAt(token.lexeme, token.start)) {
                 continue;
             }
             globals.add(token.lexeme);
@@ -303,14 +291,22 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
             start--;
         }
         var token = chars.subSequence(start + 1, offset).toString();
-        var separator = token.indexOf("::");
+        return resolveNamespaceToken(token);
+    }
+
+    static @Nullable NamespaceContext resolveNamespaceToken(@NotNull String token) {
+        var separator = token.indexOf(':');
         if (separator <= 0) {
             return null;
         }
-        if (separator == token.length() - 2) {
+        var functionPrefixStart = separator + 1;
+        while (functionPrefixStart < token.length() && token.charAt(functionPrefixStart) == ':') {
+            functionPrefixStart++;
+        }
+        if (functionPrefixStart == token.length()) {
             return new NamespaceContext(token.substring(0, separator), "");
         }
-        return new NamespaceContext(token.substring(0, separator), token.substring(separator + 2));
+        return new NamespaceContext(token.substring(0, separator), token.substring(functionPrefixStart));
     }
 
     private static boolean isFunctionTokenChar(char ch) {
@@ -320,6 +316,6 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
     private record DotContext(Set<String> localVariables, Set<String> recentGlobalVariables) {
     }
 
-    private record NamespaceContext(String namespace, String functionPrefix) {
+    record NamespaceContext(String namespace, String functionPrefix) {
     }
 }
