@@ -2,7 +2,6 @@ package io.github.sibmaks.jjtemplate.idea.lang;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
@@ -22,13 +21,13 @@ import java.util.HashSet;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 public final class JjtemplateAnnotator implements Annotator {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
-
-    private static void highlightJsonLike(String text, AnnotationHolder holder, Set<String> localDefinitions) {
+    private static void highlightJsonLike(
+            String text,
+            AnnotationHolder holder,
+            List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions
+    ) {
         var rangeBindings = collectRangeBindings(text);
         var nesting = 0;
         var inString = false;
@@ -161,7 +160,7 @@ public final class JjtemplateAnnotator implements Annotator {
                                                    int endExclusive,
                                                    AnnotationHolder holder,
                                                    TextAttributesKey plainTextStyle,
-                                                   Set<String> localDefinitions,
+                                                   List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
                                                    Set<String> rangeBindings) {
         var contentStart = start + 1;
         var contentEnd = Math.max(contentStart, endExclusive - 1);
@@ -196,7 +195,7 @@ public final class JjtemplateAnnotator implements Annotator {
                                               int baseOffset,
                                               AnnotationHolder holder,
                                               TextAttributesKey fallbackStyle,
-                                              Set<String> localDefinitions,
+                                              List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
                                               Set<String> inheritedRangeBindings) {
         try {
             var tokens = new TemplateLexer(lookup).tokens();
@@ -232,7 +231,7 @@ public final class JjtemplateAnnotator implements Annotator {
                                                  int baseOffset,
                                                  AnnotationHolder holder,
                                                  TextAttributesKey fallbackStyle,
-                                                 Set<String> localDefinitions,
+                                                 List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
                                                  Set<String> inheritedRangeBindings) {
         var rangeBindings = new HashSet<>(inheritedRangeBindings);
         rangeBindings.addAll(collectRangeBindings(tokens));
@@ -317,7 +316,7 @@ public final class JjtemplateAnnotator implements Annotator {
                                                             int stringTokenEnd,
                                                             int baseOffset,
                                                             AnnotationHolder holder,
-                                                            Set<String> localDefinitions,
+                                                            List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
                                                             Set<String> rangeBindings) {
         if (stringTokenEnd - stringTokenStart < 2) {
             return;
@@ -637,13 +636,13 @@ public final class JjtemplateAnnotator implements Annotator {
 
     private static boolean isContextVariable(List<Token> tokens,
                                              int identIndex,
-                                             Set<String> localDefinitions,
+                                             boolean localDefinition,
                                              Set<String> rangeBindings) {
         var token = tokens.get(identIndex);
         if (!isRootVariable(tokens, identIndex)) {
             return false;
         }
-        if (localDefinitions.contains(token.lexeme)) {
+        if (localDefinition) {
             return false;
         }
         return !rangeBindings.contains(token.lexeme);
@@ -692,62 +691,6 @@ public final class JjtemplateAnnotator implements Annotator {
         } catch (Exception ignored) {
             return Set.of();
         }
-    }
-
-    private static Set<String> extractLocalDefinitions(String source) {
-        try {
-            var script = MAPPER.readTree(source);
-            var definitionsNode = script.get("definitions");
-            if (definitionsNode == null || !definitionsNode.isArray()) {
-                return Set.of();
-            }
-            var result = new HashSet<String>();
-            var definitionItems = definitionsNode.elements();
-            while (definitionItems.hasNext()) {
-                var definitionNode = definitionItems.next();
-                if (!definitionNode.isObject()) {
-                    continue;
-                }
-                var fields = definitionNode.fieldNames();
-                while (fields.hasNext()) {
-                    var field = fields.next();
-                    if (IDENTIFIER_PATTERN.matcher(field).matches()) {
-                        result.add(field);
-                        continue;
-                    }
-                    result.addAll(extractDefinitionNames(field));
-                }
-            }
-            return result;
-        } catch (Exception ignored) {
-            return Set.of();
-        }
-    }
-
-    private static Set<String> extractDefinitionNames(String definitionKey) {
-        if (definitionKey == null || definitionKey.isBlank()) {
-            return Set.of();
-        }
-        var names = new HashSet<String>();
-        try {
-            var tokens = new TemplateLexer(definitionKey).tokens();
-            for (int i = 0; i < tokens.size(); i++) {
-                var token = tokens.get(i);
-                if (token.type != TokenType.IDENT) {
-                    continue;
-                }
-                var next = findNextNonTextToken(tokens, i + 1);
-                if (next == null || next.type() != TokenType.KEYWORD) {
-                    continue;
-                }
-                if (Keyword.RANGE.eq(next.token().lexeme) || Keyword.SWITCH.eq(next.token().lexeme)) {
-                    names.add(token.lexeme);
-                }
-            }
-        } catch (Exception ignored) {
-            return Set.of();
-        }
-        return names;
     }
 
     private static IndexedToken findPreviousNonTextToken(List<Token> tokens, int from) {
@@ -854,7 +797,7 @@ public final class JjtemplateAnnotator implements Annotator {
             return;
         }
         var text = element.getText();
-        var localDefinitions = extractLocalDefinitions(text);
+        var localDefinitions = UnusedDefinitionAnalyzer.findDefinitions(text);
         highlightJsonLike(text, holder, localDefinitions);
         validateJson(text, holder);
         try {
@@ -926,7 +869,7 @@ public final class JjtemplateAnnotator implements Annotator {
 
     private static void highlightTemplateIdentifiers(List<Token> tokens,
                                                      AnnotationHolder holder,
-                                                     Set<String> localDefinitions,
+                                                     List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
                                                      Set<String> rangeBindings) {
         highlightTemplateIdentifiers(tokens, 0, holder, localDefinitions, rangeBindings);
     }
@@ -934,29 +877,63 @@ public final class JjtemplateAnnotator implements Annotator {
     private static void highlightTemplateIdentifiers(List<Token> tokens,
                                                      int baseOffset,
                                                      AnnotationHolder holder,
-                                                     Set<String> localDefinitions,
+                                                     List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
                                                      Set<String> rangeBindings) {
         for (int i = 0; i < tokens.size(); i++) {
             var token = tokens.get(i);
             if (token.type != TokenType.IDENT) {
                 continue;
             }
-            var key = identifierTextAttributes(tokens, i, localDefinitions, rangeBindings);
+            var key = identifierTextAttributes(
+                    tokens,
+                    i,
+                    localDefinitions,
+                    rangeBindings,
+                    baseOffset + token.start
+            );
             annotateRange(holder, baseOffset + token.start, baseOffset + token.end, key);
         }
+    }
+
+    static TextAttributesKey identifierTextAttributes(
+            List<Token> tokens,
+            int identifierIndex,
+            List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
+            Set<String> rangeBindings,
+            int absoluteOffset
+    ) {
+        var token = tokens.get(identifierIndex);
+        var localDefinition = localDefinitions.stream()
+                .anyMatch(definition -> definition.name().equals(token.lexeme)
+                        && definition.start() < absoluteOffset);
+        return identifierTextAttributes(tokens, identifierIndex, localDefinition, rangeBindings);
     }
 
     static TextAttributesKey identifierTextAttributes(List<Token> tokens,
                                                       int identifierIndex,
                                                       Set<String> localDefinitions,
                                                       Set<String> rangeBindings) {
+        return identifierTextAttributes(
+                tokens,
+                identifierIndex,
+                localDefinitions.contains(tokens.get(identifierIndex).lexeme),
+                rangeBindings
+        );
+    }
+
+    private static TextAttributesKey identifierTextAttributes(
+            List<Token> tokens,
+            int identifierIndex,
+            boolean localDefinition,
+            Set<String> rangeBindings
+    ) {
         if (isDefinitionName(tokens, identifierIndex) || isRangeBindingName(tokens, identifierIndex)) {
             return JjtemplateSyntaxHighlighter.OBJECT_KEY;
         }
         if (isFunctionCall(tokens, identifierIndex)) {
             return JjtemplateSyntaxHighlighter.TEMPLATE_FUNCTION;
         }
-        if (isContextVariable(tokens, identifierIndex, localDefinitions, rangeBindings)) {
+        if (isContextVariable(tokens, identifierIndex, localDefinition, rangeBindings)) {
             return JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE;
         }
         return JjtemplateSyntaxHighlighter.TEMPLATE_VARIABLE;

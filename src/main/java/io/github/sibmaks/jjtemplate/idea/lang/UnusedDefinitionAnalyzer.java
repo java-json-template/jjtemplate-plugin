@@ -19,15 +19,15 @@ final class UnusedDefinitionAnalyzer {
     }
 
     static List<UnusedDefinition> findUnused(String source, List<Token> tokens) {
-        if (!isValidJson(source)) {
-            return List.of();
-        }
-        var parser = new JsonStructureParser(source);
-        var metadata = parser.parse();
-        var usedNames = collectUsedNames(tokens, metadata.rangeScopes());
+        var metadata = analyze(source);
+        var usedDefinitions = collectUsedDefinitions(tokens, metadata);
         return metadata.definitions().stream()
-                .filter(definition -> !usedNames.contains(definition.name()))
+                .filter(definition -> !usedDefinitions.contains(definition))
                 .toList();
+    }
+
+    static List<UnusedDefinition> findDefinitions(String source) {
+        return analyze(source).definitions();
     }
 
     static Set<String> findRangeBindingsAt(String source, int offset) {
@@ -56,18 +56,40 @@ final class UnusedDefinitionAnalyzer {
         }
     }
 
-    private static Set<String> collectUsedNames(List<Token> tokens, List<RangeScope> rangeScopes) {
-        var usedNames = new HashSet<String>();
+    private static AnalysisMetadata analyze(String source) {
+        if (!isValidJson(source)) {
+            return new AnalysisMetadata(List.of(), List.of());
+        }
+        return new JsonStructureParser(source).parse();
+    }
+
+    private static Set<UnusedDefinition> collectUsedDefinitions(
+            List<Token> tokens,
+            AnalysisMetadata metadata
+    ) {
+        var usedDefinitions = new HashSet<UnusedDefinition>();
         for (int i = 0; i < tokens.size(); i++) {
             var token = tokens.get(i);
             if (token.type != TokenType.IDENT || !isRootVariable(tokens, i)) {
                 continue;
             }
-            if (!isRangeBindingUsage(token, rangeScopes)) {
-                usedNames.add(token.lexeme);
+            if (isRangeBindingUsage(token, metadata.rangeScopes())) {
+                continue;
+            }
+            UnusedDefinition resolved = null;
+            for (var definition : metadata.definitions()) {
+                if (!definition.name().equals(token.lexeme) || definition.start() >= token.start) {
+                    continue;
+                }
+                if (resolved == null || definition.start() > resolved.start()) {
+                    resolved = definition;
+                }
+            }
+            if (resolved != null) {
+                usedDefinitions.add(resolved);
             }
         }
-        return usedNames;
+        return usedDefinitions;
     }
 
     private static boolean isRootVariable(List<Token> tokens, int identIndex) {

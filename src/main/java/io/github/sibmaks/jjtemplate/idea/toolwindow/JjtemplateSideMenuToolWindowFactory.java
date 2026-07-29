@@ -103,7 +103,11 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             var formatContextButton = new JButton("Format JSON");
             formatContextButton.addActionListener(event -> formatContextJson(project, contextInput));
             var generateContextButton = new JButton("Generate Context");
-            generateContextButton.addActionListener(event -> generateContext(project, contextInput));
+            generateContextButton.addActionListener(event -> generateContext(
+                    project,
+                    contextInput,
+                    legacyMode.isSelected()
+            ));
             var compileButton = new JButton("Compile");
             compileButton.addActionListener(event -> compileCurrentFile(
                     project,
@@ -423,7 +427,11 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         FileEditorManager.getInstance(project).openFile(outputFile, true, true);
     }
 
-    private static void generateContext(@NotNull Project project, @NotNull EditorTextField contextInput) {
+    private static void generateContext(
+            @NotNull Project project,
+            @NotNull EditorTextField contextInput,
+            boolean legacyMode
+    ) {
         try {
             var sourceFile = getCurrentJjtemplateFile(project);
             if (sourceFile == null) {
@@ -436,7 +444,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                 return;
             }
 
-            var contextTemplate = buildContextTemplate(source);
+            var contextTemplate = buildContextTemplate(source, legacyMode);
             var pretty = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(contextTemplate);
             contextInput.setText(pretty);
         } catch (Exception exception) {
@@ -467,30 +475,93 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     }
 
     static Map<String, Object> buildContextTemplate(@NotNull String source) {
+        return buildContextTemplate(source, false);
+    }
+
+    static Map<String, Object> buildContextTemplate(@NotNull String source, boolean legacyMode) {
         var root = new LinkedHashMap<String, Object>();
         try {
             var scriptNode = MAPPER.readTree(source);
             var globalDefinitions = extractGlobalDefinitions(scriptNode);
             var script = MAPPER.treeToValue(scriptNode, TemplateScript.class);
-            var localDefinitions = collectLocalDefinitions(script, globalDefinitions);
-            localDefinitions.addAll(collectExpressionDefinitionNames(script));
+            var definitions = prepareDefinitionsForContext(script.getDefinitions(), legacyMode);
+            var localDefinitions = collectLocalDefinitions(definitions, globalDefinitions);
+            localDefinitions.addAll(collectExpressionDefinitionNames(definitions));
 
             collectContextPaths(root, script.getTemplate(), localDefinitions);
-            var definitions = script.getDefinitions();
-            if (definitions != null) {
-                for (var definition : definitions) {
-                    for (var entry : definition.entrySet()) {
-                        var definitionLocals = new HashSet<>(localDefinitions);
-                        definitionLocals.addAll(extractDefinitionLocalVariables(entry.getKey()));
-                        collectContextPaths(root, entry.getKey(), definitionLocals);
-                        collectContextPaths(root, entry.getValue(), definitionLocals);
-                    }
+            for (var definition : definitions) {
+                for (var entry : definition.entrySet()) {
+                    var definitionLocals = new HashSet<>(localDefinitions);
+                    definitionLocals.addAll(extractDefinitionLocalVariables(entry.getKey()));
+                    collectContextPaths(root, entry.getKey(), definitionLocals);
+                    collectContextPaths(root, entry.getValue(), definitionLocals);
                 }
             }
         } catch (Exception ignored) {
             // Keep empty context if parsing fails.
         }
         return root;
+    }
+
+    private static @NotNull List<Map<String, Object>> prepareDefinitionsForContext(
+            List<? extends Map<String, Object>> definitions,
+            boolean legacyMode
+    ) {
+        if (definitions == null) {
+            return List.of();
+        }
+        return definitions.stream()
+                .map(definition -> prepareDefinitionMapForContext(definition, legacyMode, false))
+                .toList();
+    }
+
+    private static @NotNull Map<String, Object> prepareDefinitionMapForContext(
+            @NotNull Map<?, ?> definition,
+            boolean legacyMode,
+            boolean forceExpression
+    ) {
+        var prepared = new LinkedHashMap<String, Object>(definition.size());
+        for (var entry : definition.entrySet()) {
+            var rawKey = String.valueOf(entry.getKey());
+            var expressionKey = legacyMode
+                    && !rawKey.contains("{{")
+                    && (forceExpression || looksLikeDefinitionExpression(rawKey));
+            var preparedKey = expressionKey ? "{{ " + rawKey + " }}" : rawKey;
+            prepared.put(
+                    preparedKey,
+                    prepareDefinitionValueForContext(
+                            entry.getValue(),
+                            legacyMode,
+                            looksLikeSwitchExpression(rawKey)
+                    )
+            );
+        }
+        return prepared;
+    }
+
+    private static Object prepareDefinitionValueForContext(
+            Object value,
+            boolean legacyMode,
+            boolean forceExpression
+    ) {
+        if (value instanceof Map<?, ?> map) {
+            return prepareDefinitionMapForContext(map, legacyMode, forceExpression);
+        }
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .map(item -> prepareDefinitionValueForContext(item, legacyMode, false))
+                    .toList();
+        }
+        return value;
+    }
+
+    private static boolean looksLikeDefinitionExpression(@NotNull String key) {
+        var lower = key.trim().toLowerCase();
+        return lower.contains(" switch ") || lower.contains(" range ");
+    }
+
+    private static boolean looksLikeSwitchExpression(@NotNull String key) {
+        return key.trim().toLowerCase().contains(" switch ");
     }
 
     private static void collectContextPaths(@NotNull Map<String, Object> root,
@@ -516,13 +587,9 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         }
     }
 
-    private static Set<String> collectLocalDefinitions(@NotNull TemplateScript script,
+    private static Set<String> collectLocalDefinitions(@NotNull List<Map<String, Object>> definitions,
                                                        @NotNull Set<String> globalDefinitions) {
         var result = new HashSet<String>();
-        var definitions = script.getDefinitions();
-        if (definitions == null) {
-            return result;
-        }
         for (var definition : definitions) {
             for (var key : definition.keySet()) {
                 if (key != null
@@ -569,12 +636,10 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         return result;
     }
 
-    private static Set<String> collectExpressionDefinitionNames(@NotNull TemplateScript script) {
+    private static Set<String> collectExpressionDefinitionNames(
+            @NotNull List<Map<String, Object>> definitions
+    ) {
         var result = new HashSet<String>();
-        var definitions = script.getDefinitions();
-        if (definitions == null) {
-            return result;
-        }
         for (var definition : definitions) {
             for (var key : definition.keySet()) {
                 if (key == null || key.isBlank() || IDENTIFIER_PATTERN.matcher(key).matches()) {

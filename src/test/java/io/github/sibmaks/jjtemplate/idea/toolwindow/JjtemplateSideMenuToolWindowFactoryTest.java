@@ -240,6 +240,45 @@ class JjtemplateSideMenuToolWindowFactoryTest {
     }
 
     @Test
+    void buildContextTemplateSupportsLegacyDefinitionExpressions() throws Exception {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "choice switch .request.kind": {
+                        "'match'": "{{ .request.label }}",
+                        "else": "fallback"
+                      }
+                    },
+                    {
+                      "items range item,index of .request.values": {
+                        "value": "{{ .item }}",
+                        "position": "{{ .index }}"
+                      }
+                    }
+                  ],
+                  "template": {
+                    "choice": "{{ .choice }}",
+                    "items": "{{ .items }}"
+                  }
+                }
+                """;
+
+        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source, true);
+
+        var expected = MAPPER.readTree("""
+                {
+                  "request": {
+                    "kind": null,
+                    "label": null,
+                    "values": null
+                  }
+                }
+                """);
+        assertEquals(expected, MAPPER.valueToTree(generated));
+    }
+
+    @Test
     void optimizeSourceAppliesInliningAndUnusedDefinitionElimination() throws Exception {
         var source = """
                 {

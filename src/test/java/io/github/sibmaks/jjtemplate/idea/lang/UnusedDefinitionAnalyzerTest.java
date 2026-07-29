@@ -29,6 +29,21 @@ class UnusedDefinitionAnalyzerTest {
     }
 
     @Test
+    void referenceBeforeDefinitionIsGlobalAndDoesNotMarkDefinitionUsed() {
+        var source = """
+                {
+                  "definitions": [
+                    {"usage": "{{ .definition }}"},
+                    {"definition": 42}
+                  ],
+                  "template": "{{ .usage }}"
+                }
+                """;
+
+        assertEquals(List.of("definition"), findUnusedNames(source));
+    }
+
+    @Test
     void reportsUnusedSwitchAndRangeDefinitionsAtTheirNames() {
         var source = """
                 {

@@ -37,6 +37,41 @@ class JjtemplateAnnotatorTest {
         );
     }
 
+    @Test
+    void highlightsReferenceBeforeDefinitionAsContextVariable() {
+        var source = """
+                {
+                  "definitions": [
+                    {"usage": "{{ .definition }}"},
+                    {"definition": 42}
+                  ],
+                  "template": "{{ .usage }}"
+                }
+                """;
+        var tokens = new TemplateLexer(source).tokens();
+        var definitions = UnusedDefinitionAnalyzer.findDefinitions(source);
+        var usageOffset = source.indexOf(".definition") + 1;
+
+        for (int i = 0; i < tokens.size(); i++) {
+            var token = tokens.get(i);
+            if (token.start != usageOffset) {
+                continue;
+            }
+            assertSame(
+                    JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,
+                    JjtemplateAnnotator.identifierTextAttributes(
+                            tokens,
+                            i,
+                            definitions,
+                            Set.of(),
+                            token.start
+                    )
+            );
+            return;
+        }
+        throw new AssertionError("Definition reference not found");
+    }
+
     private static TextAttributesKey identifierAttributes(
             List<Token> tokens,
             String name,

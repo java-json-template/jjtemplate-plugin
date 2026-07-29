@@ -355,7 +355,7 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
         return new TextSpan(start, end);
     }
 
-    private static Definition findDefinitionsKeyDefinition(String text, String reference, int usageOffset) {
+    static Definition findDefinitionsKeyDefinition(String text, String reference, int usageOffset) {
         var definitionsKeyIndex = text.indexOf("\"definitions\"");
         if (definitionsKeyIndex < 0) {
             return null;
@@ -370,7 +370,6 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
         }
 
         Definition bestPrior = null;
-        Definition first = null;
         for (int i = arrayStart + 1; i < arrayEnd; i++) {
             if (text.charAt(i) != '"') {
                 continue;
@@ -385,16 +384,13 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
                     && text.charAt(colonIndex) == ':'
                     && key.equals(reference)) {
                 var found = new Definition(i + 1, stringEnd);
-                if (first == null) {
-                    first = found;
-                }
                 if (found.start() <= usageOffset) {
                     bestPrior = found;
                 }
             }
             i = stringEnd;
         }
-        return bestPrior != null ? bestPrior : first;
+        return bestPrior;
     }
 
     private static Definition findDefinitionsPathDefinition(String text, List<String> path, int usageOffset) {
@@ -415,7 +411,6 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
         }
 
         Definition bestPrior = null;
-        Definition first = null;
         for (int i = arrayStart + 1; i < arrayEnd; ) {
             i = skipWsAndCommas(text, i, arrayEnd);
             if (i >= arrayEnd) {
@@ -428,9 +423,6 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
             if (text.charAt(i) == '{') {
                 var found = findKeyPathInObject(text, i, valueEnd, path, 0);
                 if (found != null) {
-                    if (first == null) {
-                        first = found;
-                    }
                     if (found.start() <= usageOffset && (bestPrior == null || found.start() > bestPrior.start())) {
                         bestPrior = found;
                     }
@@ -438,7 +430,7 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
             }
             i = valueEnd;
         }
-        return bestPrior != null ? bestPrior : first;
+        return bestPrior;
     }
 
     private static Definition findKeyPathInObject(String text,
@@ -645,7 +637,7 @@ public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHa
     private record TemplateRange(int openTokenIndex, int closeTokenIndex, int start, int end) {
     }
 
-    private record Definition(int start, int end) {
+    record Definition(int start, int end) {
     }
 
     private record TextSpan(int start, int end) {
