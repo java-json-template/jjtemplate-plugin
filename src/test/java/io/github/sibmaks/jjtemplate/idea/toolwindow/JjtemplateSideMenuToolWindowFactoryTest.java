@@ -292,6 +292,37 @@ class JjtemplateSideMenuToolWindowFactoryTest {
     }
 
     @Test
+    void optimizeSourceSupportsLegacyDefinitionExpressions() throws Exception {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "value": "text"
+                    },
+                    {
+                      "result switch .value": {
+                        "'text'": "matched",
+                        "else": "fallback"
+                      }
+                    }
+                  ],
+                  "template": "{{ .result }}"
+                }
+                """;
+
+        var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(
+                source,
+                List.of(),
+                2,
+                true
+        );
+        var optimizedScript = MAPPER.readValue(optimized, TemplateScript.class);
+        var rendered = TemplateCompiler.getInstance().compile(optimizedScript).render();
+
+        assertEquals("matched", rendered);
+    }
+
+    @Test
     void optimizeSourceRendersConcatenationsWhenConstantFoldingIsDisabled() throws Exception {
         var source = """
                 {

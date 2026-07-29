@@ -163,11 +163,18 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         for (var control : controls) {
             optimizerList.add(control.checkBox());
         }
+        var legacyMode = new JCheckBox("Optimize in legacy mode");
+        legacyMode.setToolTipText("Process unwrapped switch and range definition keys as expressions");
+        optimizerList.add(legacyMode);
         panel.add(optimizerList, BorderLayout.CENTER);
 
         var actionsPanel = createActionsPanel();
         var optimizeButton = new JButton("Optimize");
-        optimizeButton.addActionListener(event -> optimizeCurrentFile(project, controls));
+        optimizeButton.addActionListener(event -> optimizeCurrentFile(
+                project,
+                controls,
+                legacyMode.isSelected()
+        ));
         actionsPanel.add(optimizeButton);
         panel.add(actionsPanel, BorderLayout.SOUTH);
         return panel;
@@ -302,7 +309,11 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         return java.util.Objects.equals(expected, actual);
     }
 
-    private static void optimizeCurrentFile(@NotNull Project project, @NotNull List<OptimizerControl> controls) {
+    private static void optimizeCurrentFile(
+            @NotNull Project project,
+            @NotNull List<OptimizerControl> controls,
+            boolean legacyMode
+    ) {
         try {
             var sourceFile = getCurrentJjtemplateFile(project);
             if (sourceFile == null) {
@@ -318,7 +329,12 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                     .filter(control -> control.checkBox().isSelected())
                     .map(control -> control.factory().get())
                     .toList();
-            var output = optimizeSource(source, optimizers, JjtemplateIndentOptions.getIndent(project));
+            var output = optimizeSource(
+                    source,
+                    optimizers,
+                    JjtemplateIndentOptions.getIndent(project),
+                    legacyMode
+            );
             openReadOnlyOutput(
                     project,
                     sourceFile.getNameWithoutExtension() + "-optimized.jjt",
@@ -334,19 +350,31 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     static @NotNull String optimizeSource(@NotNull String source,
                                           @NotNull List<TemplateOptimizer> optimizers,
                                           int jsonIndent) throws Exception {
+        return optimizeSource(source, optimizers, jsonIndent, false);
+    }
+
+    static @NotNull String optimizeSource(
+            @NotNull String source,
+            @NotNull List<TemplateOptimizer> optimizers,
+            int jsonIndent,
+            boolean legacyMode
+    ) throws Exception {
         var script = MAPPER.readValue(source, TemplateScript.class);
-        var compiled = applyOptimizers(compileUnoptimized(script), optimizers);
+        var compiled = applyOptimizers(compileUnoptimized(script, legacyMode), optimizers);
         var optimizedScript = OptimizedTemplateRenderer.render(compiled);
         return createPrettyWriter(jsonIndent).writeValueAsString(optimizedScript);
     }
 
-    private static @NotNull CompiledTemplateImpl compileUnoptimized(@NotNull TemplateScript script) {
+    private static @NotNull CompiledTemplateImpl compileUnoptimized(
+            @NotNull TemplateScript script,
+            boolean legacyMode
+    ) {
         var expressionFactory = new TemplateExpressionFactory(TemplateEvaluationOptions.getDefault());
         var rootFactory = new RootTemplateExpressionFactory(
                 new TemplateTypeInferenceVisitor(),
                 expressionFactory,
                 new ExpressionParser(),
-                false
+                legacyMode
         );
         var internalVariables = new ArrayList<ObjectFieldElement>();
         var definitions = script.getDefinitions();
