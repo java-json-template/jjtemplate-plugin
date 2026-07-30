@@ -98,7 +98,10 @@ final class UnusedDefinitionAnalyzer {
             return false;
         }
         var beforeDotIndex = previousNonTextTokenIndex(tokens, dotIndex - 1);
-        return beforeDotIndex < 0 || tokens.get(beforeDotIndex).type != TokenType.IDENT;
+        if (beforeDotIndex < 0 || tokens.get(beforeDotIndex).type != TokenType.IDENT) {
+            return true;
+        }
+        return tokens.get(beforeDotIndex).end != tokens.get(dotIndex).start;
     }
 
     private static int previousNonTextTokenIndex(List<Token> tokens, int from) {

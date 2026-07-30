@@ -29,6 +29,43 @@ class UnusedDefinitionAnalyzerTest {
     }
 
     @Test
+    void functionArgumentsCountAsDefinitionReferences() {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "ok": 42,
+                      "fallback": 24
+                    }
+                  ],
+                  "template": [
+                    "{{ cast:str .ok }}",
+                    "{{ .ok | default .fallback }}"
+                  ]
+                }
+                """;
+
+        assertEquals(List.of(), findUnusedNames(source));
+    }
+
+    @Test
+    void propertySegmentsDoNotCountAsRootDefinitionReferences() {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "root": {},
+                      "child": "unused"
+                    }
+                  ],
+                  "template": "{{ .root.child }}"
+                }
+                """;
+
+        assertEquals(List.of("child"), findUnusedNames(source));
+    }
+
+    @Test
     void referenceBeforeDefinitionIsGlobalAndDoesNotMarkDefinitionUsed() {
         var source = """
                 {
