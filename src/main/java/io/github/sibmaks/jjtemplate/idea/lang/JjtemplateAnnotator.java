@@ -8,8 +8,10 @@ import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors;
 import com.intellij.openapi.editor.colors.CodeInsightColors;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
+import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
+import com.intellij.ui.JBColor;
 import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
 import io.github.sibmaks.jjtemplate.lexer.api.Keyword;
 import io.github.sibmaks.jjtemplate.lexer.api.TemplateLexerException;
@@ -23,6 +25,8 @@ import java.util.List;
 import java.util.Set;
 
 public final class JjtemplateAnnotator implements Annotator {
+    private static final TextAttributes GLOBAL_VARIABLE_STRIPE_ATTRIBUTES = createGlobalVariableStripeAttributes();
+
     private static void highlightJsonLike(
             String text,
             AnnotationHolder holder,
@@ -255,7 +259,7 @@ public final class JjtemplateAnnotator implements Annotator {
             }
             annotateRange(holder, baseOffset + token.start, baseOffset + token.end, key);
         }
-        highlightTemplateIdentifiers(tokens, baseOffset, holder, localDefinitions, rangeBindings);
+        highlightTemplateIdentifiers(tokens, baseOffset, holder, localDefinitions, rangeBindings, false);
     }
 
     private static List<Token> tryLexWithEscapedApostropheNormalization(String lookup) {
@@ -871,14 +875,15 @@ public final class JjtemplateAnnotator implements Annotator {
                                                      AnnotationHolder holder,
                                                      List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
                                                      Set<String> rangeBindings) {
-        highlightTemplateIdentifiers(tokens, 0, holder, localDefinitions, rangeBindings);
+        highlightTemplateIdentifiers(tokens, 0, holder, localDefinitions, rangeBindings, true);
     }
 
     private static void highlightTemplateIdentifiers(List<Token> tokens,
                                                      int baseOffset,
                                                      AnnotationHolder holder,
                                                      List<UnusedDefinitionAnalyzer.UnusedDefinition> localDefinitions,
-                                                     Set<String> rangeBindings) {
+                                                     Set<String> rangeBindings,
+                                                     boolean markGlobalVariables) {
         for (int i = 0; i < tokens.size(); i++) {
             var token = tokens.get(i);
             if (token.type != TokenType.IDENT) {
@@ -892,7 +897,23 @@ public final class JjtemplateAnnotator implements Annotator {
                     baseOffset + token.start
             );
             annotateRange(holder, baseOffset + token.start, baseOffset + token.end, key);
+            if (markGlobalVariables && key == JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE) {
+                annotateGlobalVariableUsage(holder, token, baseOffset);
+            }
         }
+    }
+
+    private static void annotateGlobalVariableUsage(AnnotationHolder holder, Token token, int baseOffset) {
+        holder.newAnnotation(HighlightSeverity.INFORMATION, "Global variable '" + token.lexeme + "'")
+                .range(TextRange.create(baseOffset + token.start, baseOffset + token.end))
+                .enforcedTextAttributes(GLOBAL_VARIABLE_STRIPE_ATTRIBUTES)
+                .create();
+    }
+
+    private static TextAttributes createGlobalVariableStripeAttributes() {
+        var attributes = new TextAttributes();
+        attributes.setErrorStripeColor(new JBColor(0x3574F0, 0x548AF7));
+        return attributes;
     }
 
     static TextAttributesKey identifierTextAttributes(
