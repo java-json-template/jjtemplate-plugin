@@ -1,18 +1,15 @@
 package io.github.sibmaks.jjtemplate.idea.completion;
 
-import io.github.sibmaks.jjtemplate.compiler.runtime.fun.TemplateFunction;
-
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 
 public final class BuiltInFunctionIndex {
-    private static final String BASE_PACKAGE = "io.github.sibmaks.jjtemplate.compiler.runtime.fun";
+    private static final Set<String> LAZY_FUNCTIONS = Set.of("default", "and", "or");
     private static final Map<String, FunctionDocumentation> DOCUMENTATION = Map.ofEntries(
             doc("cast:str", "cast:str(value)", "Converts a value to a string."),
             doc("cast:int", "cast:int(value)", "Converts a value to an integer."),
@@ -114,35 +111,23 @@ public final class BuiltInFunctionIndex {
         return Collections.unmodifiableMap(result);
     }
 
-    @SuppressWarnings("unchecked")
     private static List<BuiltInFunctionInfo> loadFunctions() {
-        var result = new ArrayList<BuiltInFunctionInfo>();
-        for (var type : findClasses(BASE_PACKAGE)) {
-            if (!TemplateFunction.class.isAssignableFrom(type) || type.isInterface() || Modifier.isAbstract(type.getModifiers())) {
-                continue;
-            }
-            try {
-                var functionType = (Class<TemplateFunction<?>>) type;
-                var constructor = functionType.getDeclaredConstructor();
-                constructor.setAccessible(true);
-                var function = constructor.newInstance();
-                var namespace = Optional.ofNullable(function.getNamespace()).orElse("");
-                var name = function.getName();
-                var lookupKey = namespace.isEmpty() ? name : namespace + "::" + name;
-                var documentationKey = namespace.isEmpty() ? name : namespace + ":" + name;
-                var documentation = DOCUMENTATION.get(documentationKey);
-                var presentableName = namespace.isEmpty() ? name : namespace + ":" + name;
-                result.add(new BuiltInFunctionInfo(
-                        lookupKey,
-                        namespace,
-                        name,
-                        documentation == null ? presentableName + "(...)" : documentation.signature(),
-                        documentation == null ? "Built-in JJTemplate function." : documentation.description(),
-                        function.isLazy()
-                ));
-            } catch (Exception ignored) {
-                // ignore non-instantiable classes
-            }
+        var result = new ArrayList<BuiltInFunctionInfo>(DOCUMENTATION.size());
+        for (var entry : DOCUMENTATION.entrySet()) {
+            var documentationKey = entry.getKey();
+            var separator = documentationKey.indexOf(':');
+            var namespace = separator < 0 ? "" : documentationKey.substring(0, separator);
+            var name = separator < 0 ? documentationKey : documentationKey.substring(separator + 1);
+            var lookupKey = namespace.isEmpty() ? name : namespace + "::" + name;
+            var documentation = entry.getValue();
+            result.add(new BuiltInFunctionInfo(
+                    lookupKey,
+                    namespace,
+                    name,
+                    documentation.signature(),
+                    documentation.description(),
+                    LAZY_FUNCTIONS.contains(documentationKey)
+            ));
         }
         result.sort(Comparator.comparing(BuiltInFunctionInfo::lookupKey));
         return Collections.unmodifiableList(result);
@@ -154,77 +139,6 @@ public final class BuiltInFunctionIndex {
             String description
     ) {
         return Map.entry(key, new FunctionDocumentation(signature, description));
-    }
-
-    private static List<Class<?>> findClasses(String basePackage) {
-        var classes = new ArrayList<Class<?>>();
-        var path = basePackage.replace('.', '/');
-        try {
-            var resources = Thread.currentThread().getContextClassLoader().getResources(path);
-            while (resources.hasMoreElements()) {
-                var resource = resources.nextElement();
-                if ("file".equals(resource.getProtocol())) {
-                    var directory = new java.io.File(resource.toURI());
-                    collectFromDirectory(directory, basePackage, classes);
-                    continue;
-                }
-                if ("jar".equals(resource.getProtocol())) {
-                    collectFromJar(resource.getPath(), path, classes);
-                }
-            }
-        } catch (Exception ignored) {
-            return classes;
-        }
-        return classes;
-    }
-
-    private static void collectFromJar(String resourcePath, String packagePath, List<Class<?>> classes) {
-        var separator = resourcePath.indexOf("!");
-        if (separator < 0) {
-            return;
-        }
-        var jarPath = resourcePath.substring(5, separator);
-        try (var jar = new java.util.jar.JarFile(jarPath)) {
-            var entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                var entry = entries.nextElement();
-                var entryName = entry.getName();
-                if (!entryName.startsWith(packagePath) || !entryName.endsWith(".class") || entryName.contains("$")) {
-                    continue;
-                }
-                var className = entryName.substring(0, entryName.length() - 6).replace('/', '.');
-                try {
-                    classes.add(Class.forName(className));
-                } catch (Exception ignored) {
-                    // ignore loading failures
-                }
-            }
-        } catch (Exception ignored) {
-            // ignore loading failures
-        }
-    }
-
-    private static void collectFromDirectory(java.io.File directory, String basePackage, List<Class<?>> classes) {
-        var files = directory.listFiles();
-        if (files == null) {
-            return;
-        }
-        for (var file : files) {
-            if (file.isDirectory()) {
-                collectFromDirectory(file, basePackage + "." + file.getName(), classes);
-                continue;
-            }
-            var fileName = file.getName();
-            if (!fileName.endsWith(".class") || fileName.contains("$")) {
-                continue;
-            }
-            var className = basePackage + '.' + fileName.substring(0, fileName.length() - 6);
-            try {
-                classes.add(Class.forName(className));
-            } catch (Exception ignored) {
-                // ignore loading failures
-            }
-        }
     }
 
     private record FunctionDocumentation(String signature, String description) {

@@ -43,4 +43,16 @@ class JjtemplateCompletionContributorTest {
         assertEquals("cast", context.namespace());
         assertEquals("st", context.functionPrefix());
     }
+
+    @Test
+    void namespaceSuggestionInsertsColon() {
+        var lookup = JjtemplateCompletionContributor.createNamespaceLookup("cast");
+        var presentation = new LookupElementPresentation();
+
+        lookup.renderElement(presentation);
+
+        assertEquals("cast", lookup.getLookupString());
+        assertEquals("cast", presentation.getItemText());
+        assertEquals("function namespace", presentation.getTypeText());
+    }
 }

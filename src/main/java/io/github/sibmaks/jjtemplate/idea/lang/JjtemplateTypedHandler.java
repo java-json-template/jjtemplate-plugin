@@ -86,7 +86,7 @@ public final class JjtemplateTypedHandler extends TypedHandlerDelegate {
         if (!file.getLanguage().isKindOf(JjtemplateLanguage.INSTANCE)) {
             return Result.CONTINUE;
         }
-        if (charTyped == '.' && isInSubstitution(editor)) {
+        if ((charTyped == '.' || charTyped == ':') && isInSubstitution(editor)) {
             AutoPopupController.getInstance(project).scheduleAutoPopup(editor);
             return Result.STOP;
         }

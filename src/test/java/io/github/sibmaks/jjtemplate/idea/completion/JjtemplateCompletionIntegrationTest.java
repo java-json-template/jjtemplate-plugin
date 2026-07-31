@@ -1,8 +1,12 @@
 package io.github.sibmaks.jjtemplate.idea.completion;
 
+import com.intellij.codeInsight.completion.CompletionType;
+import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase5;
+import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateTypedHandler;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -36,6 +40,101 @@ class JjtemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
         newFunction.renderElement(presentation);
         assertTrue(presentation.getItemText().startsWith("map:new("));
         assertTrue(presentation.getTypeText().startsWith("Creates a map"));
+    }
+
+    @Test
+    void initiallySuggestsNamespacesAndOnlyFunctionsWithoutNamespace() {
+        getFixture().configureByText("top-level.jjt", """
+                {
+                  "template": "{{ <caret> }}"
+                }
+                """);
+
+        var lookups = lookupStrings(getFixture().completeBasic());
+
+        assertTrue(lookups.contains("cast"), lookups::toString);
+        assertTrue(lookups.contains("map"), lookups::toString);
+        assertTrue(lookups.contains("default"), lookups::toString);
+        assertFalse(lookups.contains("cast:str"), lookups::toString);
+        assertFalse(lookups.contains("map:new"), lookups::toString);
+    }
+
+    @Test
+    void suggestsNamespaceForTypedPrefix() {
+        getFixture().configureByText("namespace-prefix.jjt", """
+                {
+                  "template": "{{ c<caret> }}"
+                }
+                """);
+
+        var lookups = lookupStrings(getFixture().complete(CompletionType.BASIC, 0));
+
+        assertTrue(lookups.contains("cast"), lookups::toString);
+    }
+
+    @Test
+    void acceptingNamespacePlacesCaretAfterColon() {
+        getFixture().configureByText("namespace-insertion.jjt", """
+                {
+                  "template": "{{ cas<caret> }}"
+                }
+                """);
+
+        getFixture().completeBasic();
+
+        getFixture().checkResult("""
+                {
+                  "template": "{{ cast:<caret> }}"
+                }
+                """);
+    }
+
+    @Test
+    void suggestsFunctionsImmediatelyAfterNamespaceColon() {
+        getFixture().configureByText("namespace-colon.jjt", """
+                {
+                  "template": "{{ cast:<caret> }}"
+                }
+                """);
+
+        var lookups = lookupStrings(getFixture().completeBasic());
+
+        assertTrue(lookups.contains("str"), lookups::toString);
+        assertTrue(lookups.contains("int"), lookups::toString);
+        assertFalse(lookups.contains("new"), lookups::toString);
+    }
+
+    @Test
+    void namespaceColonTriggersAutomaticCompletion() {
+        getFixture().configureByText("namespace-auto-popup.jjt", """
+                {
+                  "template": "{{ cast:<caret> }}"
+                }
+                """);
+
+        var result = ReadAction.compute(() -> new JjtemplateTypedHandler().checkAutoPopup(
+                ':',
+                getFixture().getProject(),
+                getFixture().getEditor(),
+                getFixture().getFile()
+        ));
+
+        assertTrue(result == TypedHandlerDelegate.Result.STOP);
+    }
+
+    @Test
+    void suggestsBuiltInFunctionsOnlyInsideTemplateExpressions() {
+        getFixture().configureByText("outside-expression.jjt", """
+                {
+                  <caret>"template": "constant"
+                }
+                """);
+
+        var lookups = getFixture().completeBasic();
+
+        assertTrue(lookups == null || Arrays.stream(lookups)
+                .map(LookupElement::getLookupString)
+                .noneMatch(lookup -> lookup.equals("cast") || lookup.equals("default")));
     }
 
     @Test

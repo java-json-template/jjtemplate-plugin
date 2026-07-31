@@ -1,6 +1,7 @@
 package io.github.sibmaks.jjtemplate.idea.completion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.intellij.codeInsight.AutoPopupController;
 import com.intellij.codeInsight.completion.CompletionContributor;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionProvider;
@@ -22,6 +23,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 public final class JjtemplateCompletionContributor extends CompletionContributor {
@@ -37,6 +39,10 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
                     protected void addCompletions(@NotNull CompletionParameters parameters,
                                                   @NotNull ProcessingContext context,
                                                   @NotNull CompletionResultSet result) {
+                        if (!isInsideTemplate(parameters)) {
+                            return;
+                        }
+
                         var dotContext = resolveDotContext(parameters);
                         if (dotContext != null) {
                             addDotVariableCompletions(dotContext, result);
@@ -56,8 +62,16 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
                             );
                         }
 
+                        var namespaces = new TreeSet<String>();
                         for (var function : BuiltInFunctionIndex.list()) {
-                            result.addElement(createFunctionLookup(function, function.presentableName()));
+                            if (function.namespace().isEmpty()) {
+                                result.addElement(createFunctionLookup(function, function.name()));
+                            } else {
+                                namespaces.add(function.namespace());
+                            }
+                        }
+                        for (var namespace : namespaces) {
+                            result.addElement(createNamespaceLookup(namespace));
                         }
                     }
                 }
@@ -85,6 +99,24 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
         return LookupElementBuilder.create(insertionText)
                 .withPresentableText(function.signature())
                 .withTypeText(function.description(), true);
+    }
+
+    static LookupElementBuilder createNamespaceLookup(@NotNull String namespace) {
+        return LookupElementBuilder.create(namespace)
+                .withTypeText("function namespace", true)
+                .withInsertHandler((context, item) -> {
+                    var document = context.getDocument();
+                    var tailOffset = context.getTailOffset();
+                    if (tailOffset >= document.getTextLength()
+                            || document.getCharsSequence().charAt(tailOffset) != ':') {
+                        document.insertString(tailOffset, ":");
+                    }
+                    var completionEndOffset = tailOffset + 1;
+                    context.setTailOffset(completionEndOffset);
+                    context.getEditor().getCaretModel().moveToOffset(completionEndOffset);
+                    AutoPopupController.getInstance(context.getProject())
+                            .scheduleAutoPopup(context.getEditor());
+                });
     }
 
     private static void addDotVariableCompletions(@NotNull DotContext dotContext,
@@ -134,6 +166,36 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
 
         var recentGlobalVariables = collectRecentGlobalVariables(tokens, dotIndex, localVariables, scope);
         return new DotContext(localVariables, recentGlobalVariables);
+    }
+
+    private static boolean isInsideTemplate(@NotNull CompletionParameters parameters) {
+        var document = parameters.getEditor().getDocument();
+        var offset = parameters.getOffset();
+        if (offset < 0 || offset > document.getTextLength()) {
+            return false;
+        }
+        try {
+            return isInsideTemplateAt(new TemplateLexer(document.getText()).tokens(), offset);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isInsideTemplateAt(@NotNull List<Token> tokens, int offset) {
+        var depth = 0;
+        for (var token : tokens) {
+            if (token.start >= offset) {
+                break;
+            }
+            var tokenType = token.type;
+            if (tokenType == TokenType.OPEN_EXPR || tokenType == TokenType.OPEN_COND
+                    || tokenType == TokenType.OPEN_SPREAD) {
+                depth++;
+            } else if (tokenType == TokenType.CLOSE && depth > 0) {
+                depth--;
+            }
+        }
+        return depth > 0;
     }
 
     private static int findTokenAt(List<Token> tokens, int targetOffset, TokenType tokenType) {

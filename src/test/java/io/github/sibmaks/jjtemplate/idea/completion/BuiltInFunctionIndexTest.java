@@ -10,6 +10,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BuiltInFunctionIndexTest {
 
     @Test
+    void exposesEveryCompilerBuiltInWithoutClasspathScanning() {
+        var functions = BuiltInFunctionIndex.list();
+
+        assertEquals(57, functions.size());
+        assertNotNull(BuiltInFunctionIndex.find("default"));
+        assertNotNull(BuiltInFunctionIndex.find("cast:str"));
+        assertNotNull(BuiltInFunctionIndex.find("map:new"));
+    }
+
+    @Test
     void exposesLazyArgumentEvaluationForShortCircuitFunctions() {
         assertLazy("default");
         assertLazy("and");
