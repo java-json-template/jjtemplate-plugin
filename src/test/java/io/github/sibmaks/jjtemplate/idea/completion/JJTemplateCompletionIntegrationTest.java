@@ -8,7 +8,6 @@ import com.intellij.openapi.application.ReadAction;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase5;
 import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateTypedHandler;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -16,11 +15,16 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("PMD.CloseResource")
 class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTestCase5 {
+
+    private static Set<String> lookupStrings(LookupElement[] lookups) {
+        assertTrue(lookups != null && lookups.length > 0);
+        return Arrays.stream(lookups)
+                .map(LookupElement::getLookupString)
+                .collect(Collectors.toSet());
+    }
 
     @Test
     void suggestsNamespacedFunctionWithDescription() {
@@ -123,7 +127,7 @@ class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
                 getFixture().getFile()
         ));
 
-        assertTrue(result == TypedHandlerDelegate.Result.STOP);
+        assertSame(result, TypedHandlerDelegate.Result.STOP);
     }
 
     @Test
@@ -178,13 +182,6 @@ class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
 
         assertFalse(outside.contains("item"), outside::toString);
         assertFalse(outside.contains("index"), outside::toString);
-    }
-
-    private static Set<String> lookupStrings(LookupElement[] lookups) {
-        assertTrue(lookups != null && lookups.length > 0);
-        return Arrays.stream(lookups)
-                .map(LookupElement::getLookupString)
-                .collect(Collectors.toSet());
     }
 
     @Override

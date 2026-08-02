@@ -2,11 +2,11 @@ package io.github.sibmaks.jjtemplate.idea.lang;
 
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
+import com.intellij.navigation.ItemPresentation;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
-import com.intellij.navigation.ItemPresentation;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
@@ -24,81 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHandler {
-    @Override
-    public PsiElement @Nullable [] getGotoDeclarationTargets(@Nullable PsiElement sourceElement, int offset, Editor editor) {
-        if (sourceElement == null) {
-            return null;
-        }
-        var file = sourceElement.getContainingFile();
-        if (!(file instanceof JJTemplateFile)) {
-            return null;
-        }
-
-        var text = file.getText();
-        List<Token> tokens;
-        try {
-            tokens = new TemplateLexer(text).tokens();
-        } catch (Exception ignored) {
-            return null;
-        }
-
-        var templateRanges = buildTemplateRanges(tokens);
-        var enclosing = findEnclosingTemplate(templateRanges, offset);
-        if (enclosing == null) {
-            return null;
-        }
-
-        var tokenAtOffset = findIdentifierAtOffset(tokens, enclosing, offset);
-        if (tokenAtOffset == null) {
-            return null;
-        }
-        var identifierToken = tokens.get(tokenAtOffset);
-
-        var referencePath = resolveReferencePath(tokens, enclosing, tokenAtOffset);
-        var reference = resolveReference(tokens, enclosing, tokenAtOffset);
-        if (reference == null) {
-            return null;
-        }
-
-        var definition = resolveDefinition(text, tokens, templateRanges, reference, referencePath, offset);
-        if (definition == null) {
-            ApplicationManager.getApplication().invokeLater(
-                    () -> HintManager.getInstance().showErrorHint(
-                            editor,
-                            "Context-bound variable: '" + reference + "'",
-                            identifierToken.start,
-                            Math.max(identifierToken.end, identifierToken.start + 1),
-                            HintManager.ABOVE,
-                            HintManager.HIDE_BY_ANY_KEY | HintManager.HIDE_BY_TEXT_CHANGE
-                                    | HintManager.HIDE_BY_SCROLLING | HintManager.HIDE_BY_ESCAPE
-                                    | HintManager.HIDE_BY_CARET_MOVE,
-                            0
-                    )
-            );
-            return PsiElement.EMPTY_ARRAY;
-        }
-
-        var target = file.findElementAt(definition.start());
-        if (target != null && target.getTextRange().getStartOffset() == definition.start()) {
-            return new PsiElement[]{target};
-        }
-
-        return new PsiElement[]{
-                new OffsetNavigationElement(
-                        file,
-                        definition.start(),
-                        definition.end(),
-                        reference,
-                        buildDefinitionPreview(text, definition)
-                )
-        };
-    }
-
-    @Override
-    public @Nullable String getActionText(@NotNull DataContext context) {
-        return null;
-    }
-
     private static List<TemplateRange> buildTemplateRanges(List<Token> tokens) {
         var result = new ArrayList<TemplateRange>();
         var stack = new ArrayDeque<Integer>();
@@ -290,10 +215,9 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
         if (i >= length || text.charAt(i) != ':') {
             return null;
         }
-        i++;
-        while (i < length && Character.isWhitespace(text.charAt(i))) {
+        do {
             i++;
-        }
+        } while (i < length && Character.isWhitespace(text.charAt(i)));
         if (i >= length) {
             return null;
         }
@@ -632,6 +556,81 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
             return value;
         }
         return value.substring(0, Math.max(0, maxLength - 3)) + "...";
+    }
+
+    @Override
+    public PsiElement @Nullable [] getGotoDeclarationTargets(@Nullable PsiElement sourceElement, int offset, Editor editor) {
+        if (sourceElement == null) {
+            return null;
+        }
+        var file = sourceElement.getContainingFile();
+        if (!(file instanceof JJTemplateFile)) {
+            return null;
+        }
+
+        var text = file.getText();
+        List<Token> tokens;
+        try {
+            tokens = new TemplateLexer(text).tokens();
+        } catch (Exception ignored) {
+            return null;
+        }
+
+        var templateRanges = buildTemplateRanges(tokens);
+        var enclosing = findEnclosingTemplate(templateRanges, offset);
+        if (enclosing == null) {
+            return null;
+        }
+
+        var tokenAtOffset = findIdentifierAtOffset(tokens, enclosing, offset);
+        if (tokenAtOffset == null) {
+            return null;
+        }
+        var identifierToken = tokens.get(tokenAtOffset);
+
+        var referencePath = resolveReferencePath(tokens, enclosing, tokenAtOffset);
+        var reference = resolveReference(tokens, enclosing, tokenAtOffset);
+        if (reference == null) {
+            return null;
+        }
+
+        var definition = resolveDefinition(text, tokens, templateRanges, reference, referencePath, offset);
+        if (definition == null) {
+            ApplicationManager.getApplication().invokeLater(
+                    () -> HintManager.getInstance().showErrorHint(
+                            editor,
+                            "Context-bound variable: '" + reference + "'",
+                            identifierToken.start,
+                            Math.max(identifierToken.end, identifierToken.start + 1),
+                            HintManager.ABOVE,
+                            HintManager.HIDE_BY_ANY_KEY | HintManager.HIDE_BY_TEXT_CHANGE
+                                    | HintManager.HIDE_BY_SCROLLING | HintManager.HIDE_BY_ESCAPE
+                                    | HintManager.HIDE_BY_CARET_MOVE,
+                            0
+                    )
+            );
+            return PsiElement.EMPTY_ARRAY;
+        }
+
+        var target = file.findElementAt(definition.start());
+        if (target != null && target.getTextRange().getStartOffset() == definition.start()) {
+            return new PsiElement[]{target};
+        }
+
+        return new PsiElement[]{
+                new OffsetNavigationElement(
+                        file,
+                        definition.start(),
+                        definition.end(),
+                        reference,
+                        buildDefinitionPreview(text, definition)
+                )
+        };
+    }
+
+    @Override
+    public @Nullable String getActionText(@NotNull DataContext context) {
+        return null;
     }
 
     private record TemplateRange(int openTokenIndex, int closeTokenIndex, int start, int end) {

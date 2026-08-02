@@ -127,7 +127,7 @@ public final class JJTemplateJsonLikeFormatter {
 
     private static void appendIndent(StringBuilder out, int indentLevel, int indentStep) {
         var spaces = Math.max(0, indentLevel * indentStep);
-        out.append(" ".repeat(spaces));
+        out.repeat(" ", spaces);
     }
 
 }

@@ -3,21 +3,11 @@ package io.github.sibmaks.jjtemplate.idea.toolwindow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.sibmaks.jjtemplate.compiler.impl.CompiledTemplateImpl;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.ConstantTemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.PipeChainTemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.RangeTemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.TemplateConcatTemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.TemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.TernaryTemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.VariableTemplateExpression;
+import io.github.sibmaks.jjtemplate.compiler.runtime.expression.*;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.function.ConstantFunctionCallTemplateExpression;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.function.DynamicFunctionCallTemplateExpression;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.function.FunctionCallTemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.list.ConditionListElement;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.list.DynamicListElement;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.list.ListStaticItemElement;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.list.ListTemplateExpression;
-import io.github.sibmaks.jjtemplate.compiler.runtime.expression.list.SpreadListElement;
+import io.github.sibmaks.jjtemplate.compiler.runtime.expression.list.*;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.object.ObjectFieldElement;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.object.ObjectStaticFieldElement;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.object.ObjectTemplateExpression;
@@ -70,14 +60,12 @@ final class OptimizedTemplateRenderer {
     private static Map<String, Object> renderObject(ObjectTemplateExpression expression) {
         var object = new LinkedHashMap<String, Object>();
         for (var element : expression.getElements()) {
-            if (element instanceof ObjectStaticFieldElement field) {
-                object.put(field.getKey(), field.getValue());
-            } else if (element instanceof ObjectFieldElement field) {
-                addField(object, field);
-            } else if (element instanceof SpreadObjectElement spread) {
-                object.put(spreadInterpolation(renderSource(spread.getSource())), true);
-            } else {
-                throw unsupported(element);
+            switch (element) {
+                case ObjectStaticFieldElement field -> object.put(field.getKey(), field.getValue());
+                case ObjectFieldElement field -> addField(object, field);
+                case SpreadObjectElement spread ->
+                        object.put(spreadInterpolation(renderSource(spread.getSource())), true);
+                case null, default -> throw unsupported(element);
             }
         }
         return object;
@@ -111,16 +99,13 @@ final class OptimizedTemplateRenderer {
     private static List<Object> renderList(ListTemplateExpression expression) {
         var list = new ArrayList<>();
         for (var element : expression.getElements()) {
-            if (element instanceof ListStaticItemElement item) {
-                list.add(item.getValue());
-            } else if (element instanceof DynamicListElement item) {
-                list.add(renderValue(item.getValue()));
-            } else if (element instanceof ConditionListElement condition) {
-                list.add(conditionInterpolation(renderSource(condition.getSource())));
-            } else if (element instanceof SpreadListElement spread) {
-                list.add(spreadInterpolation(renderSource(spread.getSource())));
-            } else {
-                throw unsupported(element);
+            switch (element) {
+                case ListStaticItemElement item -> list.add(item.getValue());
+                case DynamicListElement item -> list.add(renderValue(item.getValue()));
+                case ConditionListElement condition ->
+                        list.add(conditionInterpolation(renderSource(condition.getSource())));
+                case SpreadListElement spread -> list.add(spreadInterpolation(renderSource(spread.getSource())));
+                case null, default -> throw unsupported(element);
             }
         }
         return list;
@@ -185,14 +170,11 @@ final class OptimizedTemplateRenderer {
     private static String renderArguments(ListTemplateExpression arguments) {
         var rendered = new ArrayList<String>();
         for (var element : arguments.getElements()) {
-            if (element instanceof ListStaticItemElement item) {
-                rendered.add(renderLiteral(item.getValue()));
-            } else if (element instanceof DynamicListElement item) {
-                rendered.add(renderSource(item.getValue()));
-            } else if (element instanceof SpreadListElement spread) {
-                rendered.add("...(" + renderSource(spread.getSource()) + ")");
-            } else {
-                throw unsupported(element);
+            switch (element) {
+                case ListStaticItemElement item -> rendered.add(renderLiteral(item.getValue()));
+                case DynamicListElement item -> rendered.add(renderSource(item.getValue()));
+                case SpreadListElement spread -> rendered.add("...(" + renderSource(spread.getSource()) + ")");
+                case null, default -> throw unsupported(element);
             }
         }
         return String.join(", ", rendered);
@@ -223,14 +205,13 @@ final class OptimizedTemplateRenderer {
     private static Map<String, Object> renderSwitchCases(SwitchTemplateExpression expression) {
         var cases = new LinkedHashMap<String, Object>();
         for (var switchCase : expression.getCases()) {
-            if (switchCase instanceof ConstantSwitchCase constant) {
-                addSwitchCase(cases, renderLiteral(constant.getConstant()), constant.getValue());
-            } else if (switchCase instanceof ExpressionSwitchCase dynamic) {
-                addSwitchCase(cases, renderSource(dynamic.getKey()), dynamic.getValue());
-            } else if (switchCase instanceof ElseSwitchCase otherwise) {
-                addSwitchCase(cases, "else", otherwise.getValue());
-            } else {
-                throw unsupported(switchCase);
+            switch (switchCase) {
+                case ConstantSwitchCase constant ->
+                        addSwitchCase(cases, renderLiteral(constant.getConstant()), constant.getValue());
+                case ExpressionSwitchCase dynamic ->
+                        addSwitchCase(cases, renderSource(dynamic.getKey()), dynamic.getValue());
+                case ElseSwitchCase otherwise -> addSwitchCase(cases, "else", otherwise.getValue());
+                case null, default -> throw unsupported(switchCase);
             }
         }
         return cases;
@@ -279,6 +260,6 @@ final class OptimizedTemplateRenderer {
     }
 
     private static IllegalArgumentException unsupported(Object value) {
-        return new IllegalArgumentException("Unsupported optimized template node: " + value.getClass().getName());
+        return new IllegalArgumentException("Unsupported optimized template node: " + (value == null ? null : value.getClass().getName()));
     }
 }

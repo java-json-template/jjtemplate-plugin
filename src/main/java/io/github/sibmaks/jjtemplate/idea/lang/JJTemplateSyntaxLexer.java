@@ -8,8 +8,8 @@ import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public final class JJTemplateSyntaxLexer extends LexerBase {
@@ -18,72 +18,6 @@ public final class JJTemplateSyntaxLexer extends LexerBase {
     private int endOffset;
     private List<Lexeme> tokens = Collections.emptyList();
     private int index;
-
-    @Override
-    public void start(@NotNull CharSequence buffer, int startOffset, int endOffset, int initialState) {
-        this.buffer = buffer;
-        this.startOffset = startOffset;
-        this.endOffset = endOffset;
-        this.index = 0;
-        var source = buffer.subSequence(startOffset, endOffset).toString();
-        try {
-            this.tokens = toLexemes(normalizeTokens(new TemplateLexer(source).tokens(), source), source);
-        } catch (Exception e) {
-            this.tokens = fallbackTokens(source);
-        }
-    }
-
-    @Override
-    public int getState() {
-        return 0;
-    }
-
-    @Override
-    public @Nullable IElementType getTokenType() {
-        if (index >= tokens.size()) {
-            return null;
-        }
-        return tokens.get(index).type;
-    }
-
-    @Override
-    public int getTokenStart() {
-        if (index >= tokens.size()) {
-            return endOffset;
-        }
-        return startOffset + tokens.get(index).start();
-    }
-
-    @Override
-    public int getTokenEnd() {
-        if (index >= tokens.size()) {
-            return endOffset;
-        }
-        var token = tokens.get(index);
-        var tokenStart = startOffset + token.start();
-        var tokenEnd = startOffset + token.end();
-        if (tokenEnd <= tokenStart) {
-            return Math.min(endOffset, tokenStart + 1);
-        }
-        return Math.min(endOffset, tokenEnd);
-    }
-
-    @Override
-    public void advance() {
-        if (index < tokens.size()) {
-            index++;
-        }
-    }
-
-    @Override
-    public @NotNull CharSequence getBufferSequence() {
-        return buffer;
-    }
-
-    @Override
-    public int getBufferEnd() {
-        return endOffset;
-    }
 
     private static IElementType mapType(TokenType tokenType) {
         return switch (tokenType) {
@@ -208,7 +142,6 @@ public final class JJTemplateSyntaxLexer extends LexerBase {
             }
         } catch (Exception ignored) {
             var openType = switch (source.charAt(from + 1)) {
-                case '{' -> JJTemplateTokenTypes.OPEN_EXPR;
                 case '?' -> JJTemplateTokenTypes.OPEN_COND;
                 case '.' -> JJTemplateTokenTypes.OPEN_SPREAD;
                 default -> JJTemplateTokenTypes.OPEN_EXPR;
@@ -274,18 +207,7 @@ public final class JJTemplateSyntaxLexer extends LexerBase {
         var cursor = from;
         while (cursor < to) {
             if (cursor + 1 < to) {
-                var first = source.charAt(cursor);
-                var second = source.charAt(cursor + 1);
-                var templateType = switch (first) {
-                    case '{' -> switch (second) {
-                        case '{' -> JJTemplateTokenTypes.OPEN_EXPR;
-                        case '?' -> JJTemplateTokenTypes.OPEN_COND;
-                        case '.' -> JJTemplateTokenTypes.OPEN_SPREAD;
-                        default -> null;
-                    };
-                    case '}' -> second == '}' ? JJTemplateTokenTypes.CLOSE : null;
-                    default -> null;
-                };
+                var templateType = getTemplateType(source, cursor);
                 if (templateType != null) {
                     out.add(new Lexeme(templateType, cursor, cursor + 2));
                     cursor += 2;
@@ -309,6 +231,21 @@ public final class JJTemplateSyntaxLexer extends LexerBase {
         }
     }
 
+    private static @Nullable IElementType getTemplateType(String source, int cursor) {
+        var first = source.charAt(cursor);
+        var second = source.charAt(cursor + 1);
+        return switch (first) {
+            case '{' -> switch (second) {
+                case '{' -> JJTemplateTokenTypes.OPEN_EXPR;
+                case '?' -> JJTemplateTokenTypes.OPEN_COND;
+                case '.' -> JJTemplateTokenTypes.OPEN_SPREAD;
+                default -> null;
+            };
+            case '}' -> second == '}' ? JJTemplateTokenTypes.CLOSE : null;
+            default -> null;
+        };
+    }
+
     private static IElementType mapPlainDelimiter(char ch) {
         return switch (ch) {
             case '{' -> JJTemplateTokenTypes.LBRACE;
@@ -319,6 +256,72 @@ public final class JJTemplateSyntaxLexer extends LexerBase {
             case ')' -> JJTemplateTokenTypes.RPAREN;
             default -> null;
         };
+    }
+
+    @Override
+    public void start(@NotNull CharSequence buffer, int startOffset, int endOffset, int initialState) {
+        this.buffer = buffer;
+        this.startOffset = startOffset;
+        this.endOffset = endOffset;
+        this.index = 0;
+        var source = buffer.subSequence(startOffset, endOffset).toString();
+        try {
+            this.tokens = toLexemes(normalizeTokens(new TemplateLexer(source).tokens(), source), source);
+        } catch (Exception e) {
+            this.tokens = fallbackTokens(source);
+        }
+    }
+
+    @Override
+    public int getState() {
+        return 0;
+    }
+
+    @Override
+    public @Nullable IElementType getTokenType() {
+        if (index >= tokens.size()) {
+            return null;
+        }
+        return tokens.get(index).type;
+    }
+
+    @Override
+    public int getTokenStart() {
+        if (index >= tokens.size()) {
+            return endOffset;
+        }
+        return startOffset + tokens.get(index).start();
+    }
+
+    @Override
+    public int getTokenEnd() {
+        if (index >= tokens.size()) {
+            return endOffset;
+        }
+        var token = tokens.get(index);
+        var tokenStart = startOffset + token.start();
+        var tokenEnd = startOffset + token.end();
+        if (tokenEnd <= tokenStart) {
+            return Math.min(endOffset, tokenStart + 1);
+        }
+        return Math.min(endOffset, tokenEnd);
+    }
+
+    @Override
+    public void advance() {
+        if (index < tokens.size()) {
+            index++;
+        }
+    }
+
+    @Override
+    public @NotNull CharSequence getBufferSequence() {
+        return buffer;
+    }
+
+    @Override
+    public int getBufferEnd() {
+        return endOffset;
     }
 
     private record Lexeme(IElementType type, int start, int end) {

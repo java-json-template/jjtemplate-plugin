@@ -366,8 +366,7 @@ public final class JJTemplateAnnotator implements Annotator {
             case COMMA -> DefaultLanguageHighlighterColors.COMMA;
             case LPAREN, RPAREN -> DefaultLanguageHighlighterColors.PARENTHESES;
             case STRING -> JJTemplateSyntaxHighlighter.JSON_STRING;
-            case IDENT -> null;
-            case TEXT -> null;
+            case IDENT, TEXT -> null;
         };
     }
 

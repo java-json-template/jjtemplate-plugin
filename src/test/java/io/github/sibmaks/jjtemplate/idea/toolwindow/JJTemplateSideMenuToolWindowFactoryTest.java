@@ -11,14 +11,21 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class JJTemplateSideMenuToolWindowFactoryTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static boolean hasMessage(Throwable throwable, String expected) {
+        var cursor = throwable;
+        while (cursor != null) {
+            if (cursor.getMessage() != null && cursor.getMessage().contains(expected)) {
+                return true;
+            }
+            cursor = cursor.getCause();
+        }
+        return false;
+    }
 
     @Test
     void compileSourceSupportsWrappedDefinitionExpressions() throws Exception {
@@ -153,17 +160,6 @@ class JJTemplateSideMenuToolWindowFactoryTest {
         assertTrue(hasMessage(exception,
                 "No function mock case matched method 'do' with arguments [missing]"
         ));
-    }
-
-    private static boolean hasMessage(Throwable throwable, String expected) {
-        var cursor = throwable;
-        while (cursor != null) {
-            if (cursor.getMessage() != null && cursor.getMessage().contains(expected)) {
-                return true;
-            }
-            cursor = cursor.getCause();
-        }
-        return false;
     }
 
     @Test
@@ -451,7 +447,7 @@ class JJTemplateSideMenuToolWindowFactoryTest {
                   }
                 }
                 """;
-        var context = Map.<String, Object>of(
+        var context = Map.of(
                 "enabled", true,
                 "values", List.of("a", "b")
         );

@@ -48,25 +48,12 @@ import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
 import io.github.sibmaks.jjtemplate.parser.ExpressionParser;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
+import javax.swing.*;
+import java.awt.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -112,7 +99,7 @@ public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFact
     private static @NotNull EditorTextField createContextInput(@NotNull Project project) {
         return new LanguageTextField(JsonLanguage.INSTANCE, project, "{}", false) {
             @Override
-            protected EditorEx createEditor() {
+            protected @NotNull EditorEx createEditor() {
                 var editor = super.createEditor();
                 var colorScheme = EditorColorsManager.getInstance().getGlobalScheme();
                 editor.setColorsScheme(colorScheme);
@@ -875,6 +862,11 @@ public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFact
         toolWindow.getContentManager().addContent(optimizer);
     }
 
+    private enum StaticArgument {
+        NULL,
+        NOT_LITERAL
+    }
+
     private record IndexedToken(int index, Token token) {
         private TokenType type() {
             return token.type;
@@ -882,11 +874,6 @@ public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFact
     }
 
     private record StaticMethodCall(String[] path, List<Object> arguments) {
-    }
-
-    private enum StaticArgument {
-        NULL,
-        NOT_LITERAL
     }
 
     private static final class MockContextObject extends AbstractMap<String, Object> implements MethodResolver {

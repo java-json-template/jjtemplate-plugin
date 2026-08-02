@@ -2,10 +2,7 @@ package io.github.sibmaks.jjtemplate.idea.completion;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class BuiltInFunctionIndexTest {
 
@@ -38,7 +35,7 @@ class BuiltInFunctionIndexTest {
     void exposesSignatureAndDescriptionForEveryBuiltInFunction() {
         for (var function : BuiltInFunctionIndex.list()) {
             assertFalse(function.signature().endsWith("(...)"), function.lookupKey());
-            assertFalse(function.description().equals("Built-in JJTemplate function."), function.lookupKey());
+            assertNotEquals("Built-in JJTemplate function.", function.description(), function.lookupKey());
         }
     }
 

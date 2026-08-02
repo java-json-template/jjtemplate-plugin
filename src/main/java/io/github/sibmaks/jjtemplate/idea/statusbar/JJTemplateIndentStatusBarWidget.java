@@ -15,18 +15,29 @@ import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateFileType;
 import io.github.sibmaks.jjtemplate.idea.toolwindow.JJTemplateIndentOptions;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.Component;
+import java.awt.*;
 import java.awt.event.MouseEvent;
-import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class JJTemplateIndentStatusBarWidget implements StatusBarWidget, StatusBarWidget.TextPresentation {
     public static final String WIDGET_ID = "JJTemplateIndent";
 
     private final Project project;
-    private Optional<StatusBar> statusBar = Optional.empty();
+    private final AtomicReference<StatusBar> statusBarRef = new AtomicReference<>();
 
     public JJTemplateIndentStatusBarWidget(@NotNull Project project) {
         this.project = project;
+    }
+
+    private static boolean isJJTemplateFile(VirtualFile file) {
+        if (file == null) {
+            return false;
+        }
+        if (file.getFileType() == JJTemplateFileType.INSTANCE) {
+            return true;
+        }
+        var extension = file.getExtension();
+        return "jjt".equalsIgnoreCase(extension) || "jjtemplate".equalsIgnoreCase(extension);
     }
 
     @Override
@@ -36,7 +47,7 @@ public final class JJTemplateIndentStatusBarWidget implements StatusBarWidget, S
 
     @Override
     public void install(@NotNull StatusBar statusBar) {
-        this.statusBar = Optional.of(statusBar);
+        this.statusBarRef.set(statusBar);
         project.getMessageBus()
                 .connect(this)
                 .subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new SelectedFileListener());
@@ -44,7 +55,7 @@ public final class JJTemplateIndentStatusBarWidget implements StatusBarWidget, S
 
     @Override
     public void dispose() {
-        this.statusBar = Optional.empty();
+        this.statusBarRef.set(null);
     }
 
     @Override
@@ -98,7 +109,10 @@ public final class JJTemplateIndentStatusBarWidget implements StatusBarWidget, S
             return;
         }
         JJTemplateIndentOptions.setIndent(project, Integer.parseInt(selected));
-        statusBar.ifPresent(it -> it.updateWidget(ID()));
+        var statusBar = statusBarRef.get();
+        if (statusBar != null) {
+            statusBar.updateWidget(ID());
+        }
     }
 
     private boolean hasOpenJJTemplateFile() {
@@ -108,24 +122,6 @@ public final class JJTemplateIndentStatusBarWidget implements StatusBarWidget, S
         }
         var file = FileDocumentManager.getInstance().getFile(editor.getDocument());
         return isJJTemplateFile(file);
-    }
-
-    private static boolean isJJTemplateFile(VirtualFile file) {
-        if (file == null) {
-            return false;
-        }
-        if (file.getFileType() == JJTemplateFileType.INSTANCE) {
-            return true;
-        }
-        var extension = file.getExtension();
-        return "jjt".equalsIgnoreCase(extension) || "jjtemplate".equalsIgnoreCase(extension);
-    }
-
-    private final class SelectedFileListener implements FileEditorManagerListener {
-        @Override
-        public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-            statusBar.ifPresent(it -> it.updateWidget(ID()));
-        }
     }
 
     private record IndentInputValidator(String[] values) implements InputValidator {
@@ -142,6 +138,16 @@ public final class JJTemplateIndentStatusBarWidget implements StatusBarWidget, S
         @Override
         public boolean canClose(String inputString) {
             return checkInput(inputString);
+        }
+    }
+
+    private final class SelectedFileListener implements FileEditorManagerListener {
+        @Override
+        public void selectionChanged(@NotNull FileEditorManagerEvent event) {
+            var statusBar = statusBarRef.get();
+            if (statusBar != null) {
+                statusBar.updateWidget(ID());
+            }
         }
     }
 }
