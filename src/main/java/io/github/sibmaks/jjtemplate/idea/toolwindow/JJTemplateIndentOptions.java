@@ -3,20 +3,20 @@ package io.github.sibmaks.jjtemplate.idea.toolwindow;
 import com.intellij.application.options.CodeStyle;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
-import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
+import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateFileType;
 
-public final class JjtemplateIndentOptions {
+public final class JJTemplateIndentOptions {
 
-    private JjtemplateIndentOptions() {
+    private JJTemplateIndentOptions() {
     }
 
     public static int getIndent(Project project) {
-        var options = CodeStyle.getSettings(project).getIndentOptions(JjtemplateFileType.INSTANCE);
+        var options = CodeStyle.getSettings(project).getIndentOptions(JJTemplateFileType.INSTANCE);
         return normalize(options.INDENT_SIZE);
     }
 
     public static void setIndent(Project project, int indent) {
-        var options = CodeStyle.getSettings(project).getIndentOptions(JjtemplateFileType.INSTANCE);
+        var options = CodeStyle.getSettings(project).getIndentOptions(JJTemplateFileType.INSTANCE);
         var normalized = normalize(indent);
         options.INDENT_SIZE = normalized;
         options.CONTINUATION_INDENT_SIZE = normalized;

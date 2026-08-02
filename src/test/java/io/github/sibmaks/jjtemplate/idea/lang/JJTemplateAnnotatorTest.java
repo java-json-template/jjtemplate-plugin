@@ -11,18 +11,18 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-class JjtemplateAnnotatorTest {
+class JJTemplateAnnotatorTest {
 
     @Test
     void highlightsRangeBindingAsLocalVariableInIsolatedValueLookup() {
         var tokens = new TemplateLexer("{{ .item }}-{{ .index }}").tokens();
 
         assertSame(
-                JjtemplateSyntaxHighlighter.TEMPLATE_VARIABLE,
+                JJTemplateSyntaxHighlighter.TEMPLATE_VARIABLE,
                 identifierAttributes(tokens, "item", Set.of("item", "index"))
         );
         assertSame(
-                JjtemplateSyntaxHighlighter.TEMPLATE_VARIABLE,
+                JJTemplateSyntaxHighlighter.TEMPLATE_VARIABLE,
                 identifierAttributes(tokens, "index", Set.of("item", "index"))
         );
     }
@@ -32,7 +32,7 @@ class JjtemplateAnnotatorTest {
         var tokens = new TemplateLexer("{{ .external }}").tokens();
 
         assertSame(
-                JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,
+                JJTemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,
                 identifierAttributes(tokens, "external", Set.of())
         );
     }
@@ -58,8 +58,8 @@ class JjtemplateAnnotatorTest {
                 continue;
             }
             assertSame(
-                    JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,
-                    JjtemplateAnnotator.identifierTextAttributes(
+                    JJTemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,
+                    JJTemplateAnnotator.identifierTextAttributes(
                             tokens,
                             i,
                             definitions,
@@ -80,7 +80,7 @@ class JjtemplateAnnotatorTest {
         for (int i = 0; i < tokens.size(); i++) {
             var token = tokens.get(i);
             if (token.type == TokenType.IDENT && name.equals(token.lexeme)) {
-                return JjtemplateAnnotator.identifierTextAttributes(tokens, i, Set.of(), rangeBindings);
+                return JJTemplateAnnotator.identifierTextAttributes(tokens, i, Set.of(), rangeBindings);
             }
         }
         throw new AssertionError("Identifier not found: " + name);

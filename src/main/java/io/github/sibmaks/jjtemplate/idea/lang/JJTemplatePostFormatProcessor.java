@@ -9,7 +9,7 @@ import com.intellij.psi.codeStyle.CodeStyleSettings;
 import com.intellij.psi.impl.source.codeStyle.PostFormatProcessor;
 import org.jetbrains.annotations.NotNull;
 
-public final class JjtemplatePostFormatProcessor implements PostFormatProcessor {
+public final class JJTemplatePostFormatProcessor implements PostFormatProcessor {
     @Override
     public @NotNull PsiElement processElement(@NotNull PsiElement source, @NotNull CodeStyleSettings settings) {
         return source;
@@ -19,7 +19,7 @@ public final class JjtemplatePostFormatProcessor implements PostFormatProcessor 
     public @NotNull TextRange processText(@NotNull PsiFile source,
                                           @NotNull TextRange rangeToReformat,
                                           @NotNull CodeStyleSettings settings) {
-        if (!source.getLanguage().isKindOf(JjtemplateLanguage.INSTANCE)) {
+        if (!source.getLanguage().isKindOf(JJTemplateLanguage.INSTANCE)) {
             return rangeToReformat;
         }
         var document = getDocument(source);
@@ -29,7 +29,7 @@ public final class JjtemplatePostFormatProcessor implements PostFormatProcessor 
 
         var indentSize = settings.getIndentOptions(source.getFileType()).INDENT_SIZE;
         var before = document.getText();
-        var after = JjtemplateJsonLikeFormatter.format(before, indentSize);
+        var after = JJTemplateJsonLikeFormatter.format(before, indentSize);
         if (before.equals(after)) {
             return rangeToReformat;
         }

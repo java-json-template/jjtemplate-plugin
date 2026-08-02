@@ -14,8 +14,8 @@ import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
 import io.github.sibmaks.jjtemplate.lexer.api.Keyword;
 import io.github.sibmaks.jjtemplate.lexer.api.Token;
 import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
-import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateLanguage;
-import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateScopeAnalyzer;
+import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateLanguage;
+import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateScopeAnalyzer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,14 +26,14 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
-public final class JjtemplateCompletionContributor extends CompletionContributor {
+public final class JJTemplateCompletionContributor extends CompletionContributor {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
-    public JjtemplateCompletionContributor() {
+    public JJTemplateCompletionContributor() {
         extend(
                 CompletionType.BASIC,
-                PlatformPatterns.psiElement().withLanguage(JjtemplateLanguage.INSTANCE),
+                PlatformPatterns.psiElement().withLanguage(JJTemplateLanguage.INSTANCE),
                 new CompletionProvider<>() {
                     @Override
                     protected void addCompletions(@NotNull CompletionParameters parameters,
@@ -159,7 +159,7 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
             return null;
         }
 
-        var scope = JjtemplateScopeAnalyzer.analyze(source);
+        var scope = JJTemplateScopeAnalyzer.analyze(source);
         var localVariables = new LinkedHashSet<>(extractLocalDefinitions(source));
         var rangeBindings = scope.bindingsAt(offset);
         localVariables.addAll(rangeBindings);
@@ -227,7 +227,7 @@ public final class JjtemplateCompletionContributor extends CompletionContributor
     private static Set<String> collectRecentGlobalVariables(List<Token> tokens,
                                                             int dotTokenIndex,
                                                             Set<String> localVariables,
-                                                            JjtemplateScopeAnalyzer.Scope scope) {
+                                                            JJTemplateScopeAnalyzer.Scope scope) {
         var globals = new LinkedHashSet<String>();
         for (int i = dotTokenIndex - 1; i >= 0; i--) {
             var token = tokens.get(i);

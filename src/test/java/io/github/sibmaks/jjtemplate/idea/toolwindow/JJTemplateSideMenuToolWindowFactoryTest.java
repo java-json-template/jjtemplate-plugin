@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class JjtemplateSideMenuToolWindowFactoryTest {
+class JJTemplateSideMenuToolWindowFactoryTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Test
@@ -39,7 +39,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, "{}");
+        var rendered = JJTemplateSideMenuToolWindowFactory.compileSource(source, "{}");
 
         assertEquals("matched", rendered);
     }
@@ -63,7 +63,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, "{}");
+        var rendered = JJTemplateSideMenuToolWindowFactory.compileSource(source, "{}");
 
         assertNull(rendered);
     }
@@ -92,7 +92,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, contextJson);
+        var rendered = JJTemplateSideMenuToolWindowFactory.compileSource(source, contextJson);
 
         assertEquals("demo: false", rendered);
     }
@@ -120,7 +120,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, contextJson);
+        var rendered = JJTemplateSideMenuToolWindowFactory.compileSource(source, contextJson);
 
         assertEquals(Map.of("matched", true), rendered);
     }
@@ -147,7 +147,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
 
         var exception = assertThrows(
                 Exception.class,
-                () -> JjtemplateSideMenuToolWindowFactory.compileSource(source, contextJson)
+                () -> JJTemplateSideMenuToolWindowFactory.compileSource(source, contextJson)
         );
 
         assertTrue(hasMessage(exception,
@@ -210,7 +210,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """);
 
-        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source);
+        var generated = JJTemplateSideMenuToolWindowFactory.buildContextTemplate(source);
 
         assertEquals(expected.toString(), MAPPER.writeValueAsString(generated));
     }
@@ -223,7 +223,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source);
+        var generated = JJTemplateSideMenuToolWindowFactory.buildContextTemplate(source);
 
         var expected = MAPPER.readTree("""
                 {
@@ -264,7 +264,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source);
+        var generated = JJTemplateSideMenuToolWindowFactory.buildContextTemplate(source);
 
         var expected = MAPPER.readTree("""
                 {
@@ -292,7 +292,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(
                 source,
                 List.of(
                         new CompiledTemplateFolder(),
@@ -322,7 +322,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(source, List.of(), 4);
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(source, List.of(), 4);
         var optimizedJson = MAPPER.readTree(optimized);
 
         assertEquals(2, optimizedJson.path("definitions").path(0).size());
@@ -349,7 +349,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(
                 source,
                 List.of(),
                 2
@@ -375,7 +375,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(
                 source,
                 List.of(
                         new VariableNodeInliner(),
@@ -390,7 +390,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
     }
 
     @Test
-    void optimizeSourceRendersValidJjtemplateWithSubstitutions() throws Exception {
+    void optimizeSourceRendersValidJJTemplateWithSubstitutions() throws Exception {
         var source = """
                 {
                   "definitions": [
@@ -406,7 +406,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(
                 source,
                 List.of(
                         new CompiledTemplateFolder(),
@@ -458,7 +458,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
         var compiler = TemplateCompiler.getInstance();
         var expected = compiler.compile(MAPPER.readValue(source, TemplateScript.class)).render(context);
 
-        var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(
                 source,
                 List.of(
                         new CompiledTemplateFolder(),

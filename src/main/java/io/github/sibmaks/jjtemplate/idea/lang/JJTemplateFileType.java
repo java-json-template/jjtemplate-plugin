@@ -7,12 +7,12 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.Icon;
 
-public final class JjtemplateFileType extends LanguageFileType {
-    public static final JjtemplateFileType INSTANCE = new JjtemplateFileType();
-    private static final Icon ICON = IconLoader.getIcon("/icons/jjtemplate.svg", JjtemplateFileType.class);
+public final class JJTemplateFileType extends LanguageFileType {
+    public static final JJTemplateFileType INSTANCE = new JJTemplateFileType();
+    private static final Icon ICON = IconLoader.getIcon("/icons/jjtemplate.svg", JJTemplateFileType.class);
 
-    private JjtemplateFileType() {
-        super(JjtemplateLanguage.INSTANCE);
+    private JJTemplateFileType() {
+        super(JJTemplateLanguage.INSTANCE);
     }
 
     @Override

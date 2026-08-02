@@ -11,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 
-public final class JjtemplateFoldingBuilder extends FoldingBuilderEx {
+public final class JJTemplateFoldingBuilder extends FoldingBuilderEx {
     @Override
     public @NotNull FoldingDescriptor @NotNull [] buildFoldRegions(@NotNull PsiElement root,
                                                                     @NotNull Document document,

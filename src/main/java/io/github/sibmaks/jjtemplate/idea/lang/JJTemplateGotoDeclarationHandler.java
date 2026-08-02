@@ -23,14 +23,14 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class JjtemplateGotoDeclarationHandler implements GotoDeclarationHandler {
+public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHandler {
     @Override
     public PsiElement @Nullable [] getGotoDeclarationTargets(@Nullable PsiElement sourceElement, int offset, Editor editor) {
         if (sourceElement == null) {
             return null;
         }
         var file = sourceElement.getContainingFile();
-        if (!(file instanceof JjtemplateFile)) {
+        if (!(file instanceof JJTemplateFile)) {
             return null;
         }
 

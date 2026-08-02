@@ -6,19 +6,21 @@ import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementPresentation;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase5;
-import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateTypedHandler;
+import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateTypedHandler;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("PMD.CloseResource")
-class JjtemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTestCase5 {
+class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTestCase5 {
 
     @Test
     void suggestsNamespacedFunctionWithDescription() {
@@ -38,7 +40,9 @@ class JjtemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
                 .orElseThrow();
         var presentation = new LookupElementPresentation();
         newFunction.renderElement(presentation);
+        assertNotNull(presentation.getItemText());
         assertTrue(presentation.getItemText().startsWith("map:new("));
+        assertNotNull(presentation.getTypeText());
         assertTrue(presentation.getTypeText().startsWith("Creates a map"));
     }
 
@@ -112,7 +116,7 @@ class JjtemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
                 }
                 """);
 
-        var result = ReadAction.compute(() -> new JjtemplateTypedHandler().checkAutoPopup(
+        var result = ReadAction.compute(() -> new JJTemplateTypedHandler().checkAutoPopup(
                 ':',
                 getFixture().getProject(),
                 getFixture().getEditor(),

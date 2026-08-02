@@ -14,12 +14,12 @@ import com.intellij.psi.tree.IFileElementType;
 import com.intellij.psi.tree.TokenSet;
 import org.jetbrains.annotations.NotNull;
 
-public final class JjtemplateParserDefinition implements ParserDefinition {
-    private static final IFileElementType FILE = new IFileElementType(JjtemplateLanguage.INSTANCE);
+public final class JJTemplateParserDefinition implements ParserDefinition {
+    private static final IFileElementType FILE = new IFileElementType(JJTemplateLanguage.INSTANCE);
 
     @Override
     public @NotNull Lexer createLexer(Project project) {
-        return new JjtemplateSyntaxLexer();
+        return new JJTemplateSyntaxLexer();
     }
 
     @Override
@@ -56,6 +56,6 @@ public final class JjtemplateParserDefinition implements ParserDefinition {
 
     @Override
     public @NotNull PsiFile createFile(@NotNull FileViewProvider viewProvider) {
-        return new JjtemplateFile(viewProvider);
+        return new JJTemplateFile(viewProvider);
     }
 }

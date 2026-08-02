@@ -5,14 +5,14 @@ import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.psi.FileViewProvider;
 import org.jetbrains.annotations.NotNull;
 
-public final class JjtemplateFile extends PsiFileBase {
-    public JjtemplateFile(@NotNull FileViewProvider viewProvider) {
-        super(viewProvider, JjtemplateLanguage.INSTANCE);
+public final class JJTemplateFile extends PsiFileBase {
+    public JJTemplateFile(@NotNull FileViewProvider viewProvider) {
+        super(viewProvider, JJTemplateLanguage.INSTANCE);
     }
 
     @Override
     public @NotNull FileType getFileType() {
-        return JjtemplateFileType.INSTANCE;
+        return JJTemplateFileType.INSTANCE;
     }
 
     @Override

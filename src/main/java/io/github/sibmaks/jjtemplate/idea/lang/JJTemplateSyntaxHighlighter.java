@@ -10,7 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
-public final class JjtemplateSyntaxHighlighter extends SyntaxHighlighterBase {
+public final class JJTemplateSyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TextAttributesKey JSON_STRING =
             TextAttributesKey.createTextAttributesKey("JJTEMPLATE.JSON_STRING", DefaultLanguageHighlighterColors.STRING);
     public static final TextAttributesKey JSON_NUMBER =
@@ -34,32 +34,32 @@ public final class JjtemplateSyntaxHighlighter extends SyntaxHighlighterBase {
     private static final TextAttributesKey[] EMPTY = TextAttributesKey.EMPTY_ARRAY;
 
     private static final Map<IElementType, TextAttributesKey[]> ATTRIBUTES = Map.ofEntries(
-            Map.entry(JjtemplateTokenTypes.OPEN_EXPR, pack(DefaultLanguageHighlighterColors.BRACES)),
-            Map.entry(JjtemplateTokenTypes.OPEN_COND, pack(DefaultLanguageHighlighterColors.BRACES)),
-            Map.entry(JjtemplateTokenTypes.OPEN_SPREAD, pack(DefaultLanguageHighlighterColors.BRACES)),
-            Map.entry(JjtemplateTokenTypes.CLOSE, pack(DefaultLanguageHighlighterColors.BRACES)),
-            Map.entry(JjtemplateTokenTypes.KEYWORD, pack(DefaultLanguageHighlighterColors.KEYWORD)),
-            Map.entry(JjtemplateTokenTypes.STRING, pack(JSON_STRING)),
-            Map.entry(JjtemplateTokenTypes.NUMBER, pack(JSON_NUMBER)),
-            Map.entry(JjtemplateTokenTypes.BOOLEAN, pack(JSON_BOOLEAN)),
-            Map.entry(JjtemplateTokenTypes.NULL, pack(JSON_BOOLEAN)),
-            Map.entry(JjtemplateTokenTypes.PIPE, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
-            Map.entry(JjtemplateTokenTypes.DOT, pack(DefaultLanguageHighlighterColors.DOT)),
-            Map.entry(JjtemplateTokenTypes.COMMA, pack(DefaultLanguageHighlighterColors.COMMA)),
-            Map.entry(JjtemplateTokenTypes.COLON, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
-            Map.entry(JjtemplateTokenTypes.QUESTION, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
-            Map.entry(JjtemplateTokenTypes.LPAREN, pack(DefaultLanguageHighlighterColors.PARENTHESES)),
-            Map.entry(JjtemplateTokenTypes.RPAREN, pack(DefaultLanguageHighlighterColors.PARENTHESES)),
-            Map.entry(JjtemplateTokenTypes.LBRACE, pack(DefaultLanguageHighlighterColors.BRACES)),
-            Map.entry(JjtemplateTokenTypes.RBRACE, pack(DefaultLanguageHighlighterColors.BRACES)),
-            Map.entry(JjtemplateTokenTypes.LBRACKET, pack(DefaultLanguageHighlighterColors.BRACKETS)),
-            Map.entry(JjtemplateTokenTypes.RBRACKET, pack(DefaultLanguageHighlighterColors.BRACKETS)),
-            Map.entry(JjtemplateTokenTypes.IDENT, pack(TEMPLATE_VARIABLE))
+            Map.entry(JJTemplateTokenTypes.OPEN_EXPR, pack(DefaultLanguageHighlighterColors.BRACES)),
+            Map.entry(JJTemplateTokenTypes.OPEN_COND, pack(DefaultLanguageHighlighterColors.BRACES)),
+            Map.entry(JJTemplateTokenTypes.OPEN_SPREAD, pack(DefaultLanguageHighlighterColors.BRACES)),
+            Map.entry(JJTemplateTokenTypes.CLOSE, pack(DefaultLanguageHighlighterColors.BRACES)),
+            Map.entry(JJTemplateTokenTypes.KEYWORD, pack(DefaultLanguageHighlighterColors.KEYWORD)),
+            Map.entry(JJTemplateTokenTypes.STRING, pack(JSON_STRING)),
+            Map.entry(JJTemplateTokenTypes.NUMBER, pack(JSON_NUMBER)),
+            Map.entry(JJTemplateTokenTypes.BOOLEAN, pack(JSON_BOOLEAN)),
+            Map.entry(JJTemplateTokenTypes.NULL, pack(JSON_BOOLEAN)),
+            Map.entry(JJTemplateTokenTypes.PIPE, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
+            Map.entry(JJTemplateTokenTypes.DOT, pack(DefaultLanguageHighlighterColors.DOT)),
+            Map.entry(JJTemplateTokenTypes.COMMA, pack(DefaultLanguageHighlighterColors.COMMA)),
+            Map.entry(JJTemplateTokenTypes.COLON, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
+            Map.entry(JJTemplateTokenTypes.QUESTION, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
+            Map.entry(JJTemplateTokenTypes.LPAREN, pack(DefaultLanguageHighlighterColors.PARENTHESES)),
+            Map.entry(JJTemplateTokenTypes.RPAREN, pack(DefaultLanguageHighlighterColors.PARENTHESES)),
+            Map.entry(JJTemplateTokenTypes.LBRACE, pack(DefaultLanguageHighlighterColors.BRACES)),
+            Map.entry(JJTemplateTokenTypes.RBRACE, pack(DefaultLanguageHighlighterColors.BRACES)),
+            Map.entry(JJTemplateTokenTypes.LBRACKET, pack(DefaultLanguageHighlighterColors.BRACKETS)),
+            Map.entry(JJTemplateTokenTypes.RBRACKET, pack(DefaultLanguageHighlighterColors.BRACKETS)),
+            Map.entry(JJTemplateTokenTypes.IDENT, pack(TEMPLATE_VARIABLE))
     );
 
     @Override
     public @NotNull Lexer getHighlightingLexer() {
-        return new JjtemplateSyntaxLexer();
+        return new JJTemplateSyntaxLexer();
     }
 
     @Override

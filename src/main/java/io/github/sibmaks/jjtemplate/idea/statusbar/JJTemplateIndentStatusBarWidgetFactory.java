@@ -6,11 +6,11 @@ import com.intellij.openapi.wm.StatusBarWidget;
 import com.intellij.openapi.wm.StatusBarWidgetFactory;
 import org.jetbrains.annotations.NotNull;
 
-public final class JjtemplateIndentStatusBarWidgetFactory implements StatusBarWidgetFactory {
+public final class JJTemplateIndentStatusBarWidgetFactory implements StatusBarWidgetFactory {
 
     @Override
     public @NotNull String getId() {
-        return JjtemplateIndentStatusBarWidget.WIDGET_ID;
+        return JJTemplateIndentStatusBarWidget.WIDGET_ID;
     }
 
     @Override
@@ -25,7 +25,7 @@ public final class JjtemplateIndentStatusBarWidgetFactory implements StatusBarWi
 
     @Override
     public @NotNull StatusBarWidget createWidget(@NotNull Project project) {
-        return new JjtemplateIndentStatusBarWidget(project);
+        return new JJTemplateIndentStatusBarWidget(project);
     }
 
     @Override

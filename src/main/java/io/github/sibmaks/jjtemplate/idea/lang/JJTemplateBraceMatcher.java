@@ -7,14 +7,14 @@ import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public final class JjtemplateBraceMatcher implements PairedBraceMatcher {
+public final class JJTemplateBraceMatcher implements PairedBraceMatcher {
     private static final BracePair[] PAIRS = {
-            new BracePair(JjtemplateTokenTypes.OPEN_EXPR, JjtemplateTokenTypes.CLOSE, false),
-            new BracePair(JjtemplateTokenTypes.OPEN_COND, JjtemplateTokenTypes.CLOSE, false),
-            new BracePair(JjtemplateTokenTypes.OPEN_SPREAD, JjtemplateTokenTypes.CLOSE, false),
-            new BracePair(JjtemplateTokenTypes.LBRACE, JjtemplateTokenTypes.RBRACE, true),
-            new BracePair(JjtemplateTokenTypes.LBRACKET, JjtemplateTokenTypes.RBRACKET, true),
-            new BracePair(JjtemplateTokenTypes.LPAREN, JjtemplateTokenTypes.RPAREN, false)
+            new BracePair(JJTemplateTokenTypes.OPEN_EXPR, JJTemplateTokenTypes.CLOSE, false),
+            new BracePair(JJTemplateTokenTypes.OPEN_COND, JJTemplateTokenTypes.CLOSE, false),
+            new BracePair(JJTemplateTokenTypes.OPEN_SPREAD, JJTemplateTokenTypes.CLOSE, false),
+            new BracePair(JJTemplateTokenTypes.LBRACE, JJTemplateTokenTypes.RBRACE, true),
+            new BracePair(JJTemplateTokenTypes.LBRACKET, JJTemplateTokenTypes.RBRACKET, true),
+            new BracePair(JJTemplateTokenTypes.LPAREN, JJTemplateTokenTypes.RPAREN, false)
     };
 
     @Override

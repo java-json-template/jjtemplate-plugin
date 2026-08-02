@@ -9,7 +9,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 
-public final class JjtemplateTypedHandler extends TypedHandlerDelegate {
+public final class JJTemplateTypedHandler extends TypedHandlerDelegate {
     private static boolean isEscaped(@NotNull CharSequence chars, int quoteOffset) {
         var backslashes = 0;
         for (var i = quoteOffset - 1; i >= 0 && chars.charAt(i) == '\\'; i--) {
@@ -24,7 +24,7 @@ public final class JjtemplateTypedHandler extends TypedHandlerDelegate {
                                            @NotNull Editor editor,
                                            @NotNull PsiFile file,
                                            @NotNull FileType fileType) {
-        if (!file.getLanguage().isKindOf(JjtemplateLanguage.INSTANCE)) {
+        if (!file.getLanguage().isKindOf(JJTemplateLanguage.INSTANCE)) {
             return Result.CONTINUE;
         }
         if (editor.getSelectionModel().hasSelection()) {
@@ -83,7 +83,7 @@ public final class JjtemplateTypedHandler extends TypedHandlerDelegate {
                                           @NotNull Project project,
                                           @NotNull Editor editor,
                                           @NotNull PsiFile file) {
-        if (!file.getLanguage().isKindOf(JjtemplateLanguage.INSTANCE)) {
+        if (!file.getLanguage().isKindOf(JJTemplateLanguage.INSTANCE)) {
             return Result.CONTINUE;
         }
         if ((charTyped == '.' || charTyped == ':') && isInSubstitution(editor)) {
@@ -94,7 +94,7 @@ public final class JjtemplateTypedHandler extends TypedHandlerDelegate {
     }
 
     private static boolean isInSubstitution(@NotNull Editor editor) {
-        var lexer = new JjtemplateSyntaxLexer();
+        var lexer = new JJTemplateSyntaxLexer();
         var chars = editor.getDocument().getCharsSequence();
         lexer.start(chars, 0, chars.length(), 0);
 
@@ -107,7 +107,7 @@ public final class JjtemplateTypedHandler extends TypedHandlerDelegate {
             }
             if (isTemplateOpen(tokenType)) {
                 depth++;
-            } else if (tokenType == JjtemplateTokenTypes.CLOSE && depth > 0) {
+            } else if (tokenType == JJTemplateTokenTypes.CLOSE && depth > 0) {
                 depth--;
             }
             lexer.advance();
@@ -116,8 +116,8 @@ public final class JjtemplateTypedHandler extends TypedHandlerDelegate {
     }
 
     private static boolean isTemplateOpen(IElementType tokenType) {
-        return tokenType == JjtemplateTokenTypes.OPEN_EXPR
-                || tokenType == JjtemplateTokenTypes.OPEN_COND
-                || tokenType == JjtemplateTokenTypes.OPEN_SPREAD;
+        return tokenType == JJTemplateTokenTypes.OPEN_EXPR
+                || tokenType == JJTemplateTokenTypes.OPEN_COND
+                || tokenType == JJTemplateTokenTypes.OPEN_SPREAD;
     }
 }

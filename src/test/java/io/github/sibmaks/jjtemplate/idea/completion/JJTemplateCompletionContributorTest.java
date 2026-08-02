@@ -7,13 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class JjtemplateCompletionContributorTest {
+class JJTemplateCompletionContributorTest {
 
     @Test
     void builtInFunctionSuggestionShowsSignatureAndDescription() {
         var function = BuiltInFunctionIndex.find("cast:str");
         assertNotNull(function);
-        var lookup = JjtemplateCompletionContributor.createFunctionLookup(function, function.presentableName());
+        var lookup = JJTemplateCompletionContributor.createFunctionLookup(function, function.presentableName());
         var presentation = new LookupElementPresentation();
 
         lookup.renderElement(presentation);
@@ -28,7 +28,7 @@ class JjtemplateCompletionContributorTest {
         var function = BuiltInFunctionIndex.find("cast:str");
         assertNotNull(function);
 
-        var lookup = JjtemplateCompletionContributor.createFunctionLookup(function, function.name())
+        var lookup = JJTemplateCompletionContributor.createFunctionLookup(function, function.name())
                 .withLookupString(function.presentableName());
 
         assertEquals("str", lookup.getLookupString());
@@ -37,7 +37,7 @@ class JjtemplateCompletionContributorTest {
 
     @Test
     void resolvesSingleColonNamespaceCompletion() {
-        var context = JjtemplateCompletionContributor.resolveNamespaceToken("cast:st");
+        var context = JJTemplateCompletionContributor.resolveNamespaceToken("cast:st");
 
         assertNotNull(context);
         assertEquals("cast", context.namespace());
@@ -46,7 +46,7 @@ class JjtemplateCompletionContributorTest {
 
     @Test
     void namespaceSuggestionInsertsColon() {
-        var lookup = JjtemplateCompletionContributor.createNamespaceLookup("cast");
+        var lookup = JJTemplateCompletionContributor.createNamespaceLookup("cast");
         var presentation = new LookupElementPresentation();
 
         lookup.renderElement(presentation);

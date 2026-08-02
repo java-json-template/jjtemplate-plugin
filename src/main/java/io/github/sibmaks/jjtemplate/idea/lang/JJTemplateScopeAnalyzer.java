@@ -6,23 +6,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-public final class JjtemplateScopeAnalyzer {
+public final class JJTemplateScopeAnalyzer {
 
-    private JjtemplateScopeAnalyzer() {
-    }
-
-    public static @NotNull Set<String> findRangeBindingsAt(
-            @NotNull String source,
-            int offset
-    ) {
-        return analyze(source).bindingsAt(offset);
-    }
-
-    public static @NotNull Scope analyze(@NotNull String source) {
-        var ranges = UnusedDefinitionAnalyzer.findRangeScopes(source).stream()
-                .map(range -> new BindingScope(range.start(), range.end(), range.bindings()))
-                .toList();
-        return new Scope(ranges);
+    private JJTemplateScopeAnalyzer() {
     }
 
     public record Scope(List<BindingScope> ranges) {
@@ -52,5 +38,12 @@ public final class JjtemplateScopeAnalyzer {
         private boolean contains(int offset) {
             return offset >= start && offset < end;
         }
+    }
+
+    public static @NotNull Scope analyze(@NotNull String source) {
+        var ranges = UnusedDefinitionAnalyzer.findRangeScopes(source).stream()
+                .map(range -> new BindingScope(range.start(), range.end(), range.bindings()))
+                .toList();
+        return new Scope(ranges);
     }
 }

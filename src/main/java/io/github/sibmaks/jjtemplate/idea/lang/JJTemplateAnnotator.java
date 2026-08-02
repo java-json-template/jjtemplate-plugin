@@ -24,7 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-public final class JjtemplateAnnotator implements Annotator {
+public final class JJTemplateAnnotator implements Annotator {
     private static final TextAttributes GLOBAL_VARIABLE_STRIPE_ATTRIBUTES = createGlobalVariableStripeAttributes();
 
     private static void highlightJsonLike(
@@ -58,7 +58,7 @@ public final class JjtemplateAnnotator implements Annotator {
                                 stringStart,
                                 i + 1,
                                 holder,
-                                JjtemplateSyntaxHighlighter.OBJECT_KEY,
+                                JJTemplateSyntaxHighlighter.OBJECT_KEY,
                                 localDefinitions,
                                 rangeBindings
                         );
@@ -68,7 +68,7 @@ public final class JjtemplateAnnotator implements Annotator {
                                 stringStart,
                                 i + 1,
                                 holder,
-                                JjtemplateSyntaxHighlighter.JSON_STRING,
+                                JJTemplateSyntaxHighlighter.JSON_STRING,
                                 localDefinitions,
                                 rangeBindings
                         );
@@ -95,7 +95,7 @@ public final class JjtemplateAnnotator implements Annotator {
                 if (nesting == 0) {
                     holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                             .range(TextRange.from(i, 1))
-                            .textAttributes(JjtemplateSyntaxHighlighter.ROOT_OBJECT)
+                            .textAttributes(JJTemplateSyntaxHighlighter.ROOT_OBJECT)
                             .create();
                 }
                 nesting++;
@@ -105,7 +105,7 @@ public final class JjtemplateAnnotator implements Annotator {
                 if (nesting == 0) {
                     holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                             .range(TextRange.from(i, 1))
-                            .textAttributes(JjtemplateSyntaxHighlighter.ROOT_ARRAY)
+                            .textAttributes(JJTemplateSyntaxHighlighter.ROOT_ARRAY)
                             .create();
                 }
                 nesting++;
@@ -116,7 +116,7 @@ public final class JjtemplateAnnotator implements Annotator {
                     nesting--;
                 }
                 if (nesting == 0) {
-                    var attributes = ch == '}' ? JjtemplateSyntaxHighlighter.ROOT_OBJECT : JjtemplateSyntaxHighlighter.ROOT_ARRAY;
+                    var attributes = ch == '}' ? JJTemplateSyntaxHighlighter.ROOT_OBJECT : JJTemplateSyntaxHighlighter.ROOT_ARRAY;
                     holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                             .range(TextRange.from(i, 1))
                             .textAttributes(attributes)
@@ -130,7 +130,7 @@ public final class JjtemplateAnnotator implements Annotator {
                 if (end > i) {
                     holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                             .range(TextRange.create(i, end))
-                            .textAttributes(JjtemplateSyntaxHighlighter.JSON_NUMBER)
+                            .textAttributes(JJTemplateSyntaxHighlighter.JSON_NUMBER)
                             .create();
                     i = end - 1;
                     continue;
@@ -143,7 +143,7 @@ public final class JjtemplateAnnotator implements Annotator {
                 if ("true".equals(word) || "false".equals(word) || "null".equals(word)) {
                     holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                             .range(TextRange.create(i, end))
-                            .textAttributes(JjtemplateSyntaxHighlighter.JSON_BOOLEAN)
+                            .textAttributes(JJTemplateSyntaxHighlighter.JSON_BOOLEAN)
                             .create();
                 }
                 i = end - 1;
@@ -241,7 +241,7 @@ public final class JjtemplateAnnotator implements Annotator {
         rangeBindings.addAll(collectRangeBindings(tokens));
         for (var token : tokens) {
             if (token.type == TokenType.STRING) {
-                annotateRange(holder, baseOffset + token.start, baseOffset + token.end, JjtemplateSyntaxHighlighter.JSON_STRING);
+                annotateRange(holder, baseOffset + token.start, baseOffset + token.end, JJTemplateSyntaxHighlighter.JSON_STRING);
                 highlightNestedLookupTokensInString(
                         lookupSource,
                         token.start,
@@ -348,7 +348,7 @@ public final class JjtemplateAnnotator implements Annotator {
                     tokenSource.substring(i, nestedEnd),
                     baseOffset + stringTokenStart + i,
                     holder,
-                    JjtemplateSyntaxHighlighter.JSON_STRING,
+                    JJTemplateSyntaxHighlighter.JSON_STRING,
                     localDefinitions,
                     rangeBindings
             );
@@ -365,7 +365,7 @@ public final class JjtemplateAnnotator implements Annotator {
             case DOT -> DefaultLanguageHighlighterColors.DOT;
             case COMMA -> DefaultLanguageHighlighterColors.COMMA;
             case LPAREN, RPAREN -> DefaultLanguageHighlighterColors.PARENTHESES;
-            case STRING -> JjtemplateSyntaxHighlighter.JSON_STRING;
+            case STRING -> JJTemplateSyntaxHighlighter.JSON_STRING;
             case IDENT -> null;
             case TEXT -> null;
         };
@@ -797,7 +797,7 @@ public final class JjtemplateAnnotator implements Annotator {
 
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
-        if (!(element instanceof JjtemplateFile)) {
+        if (!(element instanceof JJTemplateFile)) {
             return;
         }
         var text = element.getText();
@@ -897,7 +897,7 @@ public final class JjtemplateAnnotator implements Annotator {
                     baseOffset + token.start
             );
             annotateRange(holder, baseOffset + token.start, baseOffset + token.end, key);
-            if (markGlobalVariables && key == JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE) {
+            if (markGlobalVariables && key == JJTemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE) {
                 annotateGlobalVariableUsage(holder, token, baseOffset);
             }
         }
@@ -949,14 +949,14 @@ public final class JjtemplateAnnotator implements Annotator {
             Set<String> rangeBindings
     ) {
         if (isDefinitionName(tokens, identifierIndex) || isRangeBindingName(tokens, identifierIndex)) {
-            return JjtemplateSyntaxHighlighter.OBJECT_KEY;
+            return JJTemplateSyntaxHighlighter.OBJECT_KEY;
         }
         if (isFunctionCall(tokens, identifierIndex)) {
-            return JjtemplateSyntaxHighlighter.TEMPLATE_FUNCTION;
+            return JJTemplateSyntaxHighlighter.TEMPLATE_FUNCTION;
         }
         if (isContextVariable(tokens, identifierIndex, localDefinition, rangeBindings)) {
-            return JjtemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE;
+            return JJTemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE;
         }
-        return JjtemplateSyntaxHighlighter.TEMPLATE_VARIABLE;
+        return JJTemplateSyntaxHighlighter.TEMPLATE_VARIABLE;
     }
 }

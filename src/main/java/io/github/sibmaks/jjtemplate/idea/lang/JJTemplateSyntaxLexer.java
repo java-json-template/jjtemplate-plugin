@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class JjtemplateSyntaxLexer extends LexerBase {
+public final class JJTemplateSyntaxLexer extends LexerBase {
     private CharSequence buffer = "";
     private int startOffset;
     private int endOffset;
@@ -87,24 +87,24 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
 
     private static IElementType mapType(TokenType tokenType) {
         return switch (tokenType) {
-            case TEXT -> JjtemplateTokenTypes.TEXT;
-            case OPEN_EXPR -> JjtemplateTokenTypes.OPEN_EXPR;
-            case OPEN_COND -> JjtemplateTokenTypes.OPEN_COND;
-            case OPEN_SPREAD -> JjtemplateTokenTypes.OPEN_SPREAD;
-            case CLOSE -> JjtemplateTokenTypes.CLOSE;
-            case PIPE -> JjtemplateTokenTypes.PIPE;
-            case DOT -> JjtemplateTokenTypes.DOT;
-            case COMMA -> JjtemplateTokenTypes.COMMA;
-            case COLON -> JjtemplateTokenTypes.COLON;
-            case QUESTION -> JjtemplateTokenTypes.QUESTION;
-            case LPAREN -> JjtemplateTokenTypes.LPAREN;
-            case RPAREN -> JjtemplateTokenTypes.RPAREN;
-            case STRING -> JjtemplateTokenTypes.STRING;
-            case NUMBER -> JjtemplateTokenTypes.NUMBER;
-            case BOOLEAN -> JjtemplateTokenTypes.BOOLEAN;
-            case NULL -> JjtemplateTokenTypes.NULL;
-            case IDENT -> JjtemplateTokenTypes.IDENT;
-            case KEYWORD -> JjtemplateTokenTypes.KEYWORD;
+            case TEXT -> JJTemplateTokenTypes.TEXT;
+            case OPEN_EXPR -> JJTemplateTokenTypes.OPEN_EXPR;
+            case OPEN_COND -> JJTemplateTokenTypes.OPEN_COND;
+            case OPEN_SPREAD -> JJTemplateTokenTypes.OPEN_SPREAD;
+            case CLOSE -> JJTemplateTokenTypes.CLOSE;
+            case PIPE -> JJTemplateTokenTypes.PIPE;
+            case DOT -> JJTemplateTokenTypes.DOT;
+            case COMMA -> JJTemplateTokenTypes.COMMA;
+            case COLON -> JJTemplateTokenTypes.COLON;
+            case QUESTION -> JJTemplateTokenTypes.QUESTION;
+            case LPAREN -> JJTemplateTokenTypes.LPAREN;
+            case RPAREN -> JJTemplateTokenTypes.RPAREN;
+            case STRING -> JJTemplateTokenTypes.STRING;
+            case NUMBER -> JJTemplateTokenTypes.NUMBER;
+            case BOOLEAN -> JJTemplateTokenTypes.BOOLEAN;
+            case NULL -> JJTemplateTokenTypes.NULL;
+            case IDENT -> JJTemplateTokenTypes.IDENT;
+            case KEYWORD -> JJTemplateTokenTypes.KEYWORD;
         };
     }
 
@@ -162,7 +162,7 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
 
     private static void appendStringToken(String source, int from, int to, List<Lexeme> out) {
         if (to - from < 2) {
-            out.add(new Lexeme(JjtemplateTokenTypes.STRING, from, to));
+            out.add(new Lexeme(JJTemplateTokenTypes.STRING, from, to));
             return;
         }
         var contentStart = from + 1;
@@ -180,7 +180,7 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
                 break;
             }
             if (cursor < index) {
-                out.add(new Lexeme(JjtemplateTokenTypes.STRING, cursor, index));
+                out.add(new Lexeme(JJTemplateTokenTypes.STRING, cursor, index));
             }
             appendTemplateExpressionTokens(source, index, templateEnd, out);
             cursor = templateEnd;
@@ -188,7 +188,7 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
         }
 
         if (cursor < to) {
-            out.add(new Lexeme(JjtemplateTokenTypes.STRING, cursor, to));
+            out.add(new Lexeme(JJTemplateTokenTypes.STRING, cursor, to));
         }
     }
 
@@ -203,22 +203,22 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
                     appendStringToken(source, tokenStart, tokenEnd, out);
                     continue;
                 }
-                var type = token.type == TokenType.TEXT ? JjtemplateTokenTypes.STRING : mapType(token.type);
+                var type = token.type == TokenType.TEXT ? JJTemplateTokenTypes.STRING : mapType(token.type);
                 out.add(new Lexeme(type, tokenStart, tokenEnd));
             }
         } catch (Exception ignored) {
             var openType = switch (source.charAt(from + 1)) {
-                case '{' -> JjtemplateTokenTypes.OPEN_EXPR;
-                case '?' -> JjtemplateTokenTypes.OPEN_COND;
-                case '.' -> JjtemplateTokenTypes.OPEN_SPREAD;
-                default -> JjtemplateTokenTypes.OPEN_EXPR;
+                case '{' -> JJTemplateTokenTypes.OPEN_EXPR;
+                case '?' -> JJTemplateTokenTypes.OPEN_COND;
+                case '.' -> JJTemplateTokenTypes.OPEN_SPREAD;
+                default -> JJTemplateTokenTypes.OPEN_EXPR;
             };
             out.add(new Lexeme(openType, from, Math.min(from + 2, to)));
             if (to - from > 4) {
-                out.add(new Lexeme(JjtemplateTokenTypes.STRING, from + 2, to - 2));
+                out.add(new Lexeme(JJTemplateTokenTypes.STRING, from + 2, to - 2));
             }
             if (to - from >= 2) {
-                out.add(new Lexeme(JjtemplateTokenTypes.CLOSE, to - 2, to));
+                out.add(new Lexeme(JJTemplateTokenTypes.CLOSE, to - 2, to));
             }
         }
     }
@@ -265,7 +265,7 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
         var result = new ArrayList<Lexeme>();
         appendPlainTextTokens(source, 0, source.length(), result);
         if (result.isEmpty()) {
-            result.add(new Lexeme(JjtemplateTokenTypes.TEXT, 0, source.length()));
+            result.add(new Lexeme(JJTemplateTokenTypes.TEXT, 0, source.length()));
         }
         return result;
     }
@@ -278,12 +278,12 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
                 var second = source.charAt(cursor + 1);
                 var templateType = switch (first) {
                     case '{' -> switch (second) {
-                        case '{' -> JjtemplateTokenTypes.OPEN_EXPR;
-                        case '?' -> JjtemplateTokenTypes.OPEN_COND;
-                        case '.' -> JjtemplateTokenTypes.OPEN_SPREAD;
+                        case '{' -> JJTemplateTokenTypes.OPEN_EXPR;
+                        case '?' -> JJTemplateTokenTypes.OPEN_COND;
+                        case '.' -> JJTemplateTokenTypes.OPEN_SPREAD;
                         default -> null;
                     };
-                    case '}' -> second == '}' ? JjtemplateTokenTypes.CLOSE : null;
+                    case '}' -> second == '}' ? JJTemplateTokenTypes.CLOSE : null;
                     default -> null;
                 };
                 if (templateType != null) {
@@ -305,18 +305,18 @@ public final class JjtemplateSyntaxLexer extends LexerBase {
             while (cursor < to && mapPlainDelimiter(source.charAt(cursor)) == null) {
                 cursor++;
             }
-            out.add(new Lexeme(JjtemplateTokenTypes.TEXT, start, cursor));
+            out.add(new Lexeme(JJTemplateTokenTypes.TEXT, start, cursor));
         }
     }
 
     private static IElementType mapPlainDelimiter(char ch) {
         return switch (ch) {
-            case '{' -> JjtemplateTokenTypes.LBRACE;
-            case '}' -> JjtemplateTokenTypes.RBRACE;
-            case '[' -> JjtemplateTokenTypes.LBRACKET;
-            case ']' -> JjtemplateTokenTypes.RBRACKET;
-            case '(' -> JjtemplateTokenTypes.LPAREN;
-            case ')' -> JjtemplateTokenTypes.RPAREN;
+            case '{' -> JJTemplateTokenTypes.LBRACE;
+            case '}' -> JJTemplateTokenTypes.RBRACE;
+            case '[' -> JJTemplateTokenTypes.LBRACKET;
+            case ']' -> JJTemplateTokenTypes.RBRACKET;
+            case '(' -> JJTemplateTokenTypes.LPAREN;
+            case ')' -> JJTemplateTokenTypes.RPAREN;
             default -> null;
         };
     }

@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SuppressWarnings("PMD.CloseResource")
-class JjtemplateAnnotatorIntegrationTest extends LightJavaCodeInsightFixtureTestCase5 {
+class JJTemplateAnnotatorIntegrationTest extends LightJavaCodeInsightFixtureTestCase5 {
 
     @Test
     void marksEveryGlobalVariableUsageOnErrorStripe() {
@@ -40,7 +40,7 @@ class JjtemplateAnnotatorIntegrationTest extends LightJavaCodeInsightFixtureTest
                         .map(info -> source.substring(info.startOffset, info.endOffset))
                         .toList()
         );
-        globalHighlights.forEach(JjtemplateAnnotatorIntegrationTest::assertErrorStripeMarker);
+        globalHighlights.forEach(JJTemplateAnnotatorIntegrationTest::assertErrorStripeMarker);
     }
 
     private static void assertErrorStripeMarker(HighlightInfo info) {

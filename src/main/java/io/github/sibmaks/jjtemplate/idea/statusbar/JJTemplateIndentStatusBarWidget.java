@@ -11,21 +11,21 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.StatusBarWidget;
 import com.intellij.util.Consumer;
-import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
-import io.github.sibmaks.jjtemplate.idea.toolwindow.JjtemplateIndentOptions;
+import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateFileType;
+import io.github.sibmaks.jjtemplate.idea.toolwindow.JJTemplateIndentOptions;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.Component;
 import java.awt.event.MouseEvent;
 import java.util.Optional;
 
-public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, StatusBarWidget.TextPresentation {
+public final class JJTemplateIndentStatusBarWidget implements StatusBarWidget, StatusBarWidget.TextPresentation {
     public static final String WIDGET_ID = "JJTemplateIndent";
 
     private final Project project;
     private Optional<StatusBar> statusBar = Optional.empty();
 
-    public JjtemplateIndentStatusBarWidget(@NotNull Project project) {
+    public JJTemplateIndentStatusBarWidget(@NotNull Project project) {
         this.project = project;
     }
 
@@ -54,10 +54,10 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
 
     @Override
     public @NotNull String getText() {
-        if (!hasOpenJjtemplateFile()) {
+        if (!hasOpenJJTemplateFile()) {
             return "";
         }
-        return "JJT Indent: " + JjtemplateIndentOptions.getIndent(project);
+        return "JJT Indent: " + JJTemplateIndentOptions.getIndent(project);
     }
 
     @Override
@@ -67,7 +67,7 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
 
     @Override
     public @NotNull String getTooltipText() {
-        if (!hasOpenJjtemplateFile()) {
+        if (!hasOpenJJTemplateFile()) {
             return "";
         }
         return "JJTemplate indent used by Reformat File";
@@ -79,12 +79,12 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
     }
 
     private void chooseIndent() {
-        if (!hasOpenJjtemplateFile()) {
+        if (!hasOpenJJTemplateFile()) {
             Messages.showInfoMessage(project, "Open a JJTemplate file (*.jjt, *.jjtemplate) first.", "JJTemplate");
             return;
         }
 
-        var current = JjtemplateIndentOptions.getIndent(project);
+        var current = JJTemplateIndentOptions.getIndent(project);
         var values = new String[]{"1", "2", "3", "4", "5", "6", "7", "8"};
         var selected = Messages.showEditableChooseDialog(
                 "Select indent size for JJTemplate files.",
@@ -97,24 +97,24 @@ public final class JjtemplateIndentStatusBarWidget implements StatusBarWidget, S
         if (selected == null) {
             return;
         }
-        JjtemplateIndentOptions.setIndent(project, Integer.parseInt(selected));
+        JJTemplateIndentOptions.setIndent(project, Integer.parseInt(selected));
         statusBar.ifPresent(it -> it.updateWidget(ID()));
     }
 
-    private boolean hasOpenJjtemplateFile() {
+    private boolean hasOpenJJTemplateFile() {
         var editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
         if (editor == null) {
             return false;
         }
         var file = FileDocumentManager.getInstance().getFile(editor.getDocument());
-        return isJjtemplateFile(file);
+        return isJJTemplateFile(file);
     }
 
-    private static boolean isJjtemplateFile(VirtualFile file) {
+    private static boolean isJJTemplateFile(VirtualFile file) {
         if (file == null) {
             return false;
         }
-        if (file.getFileType() == JjtemplateFileType.INSTANCE) {
+        if (file.getFileType() == JJTemplateFileType.INSTANCE) {
             return true;
         }
         var extension = file.getExtension();

@@ -9,7 +9,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.ide.CopyPasteManager;
 import com.intellij.openapi.ui.Messages;
-import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
+import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateFileType;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.datatransfer.StringSelection;
@@ -54,7 +54,7 @@ public final class CopyMinifiedJsonAction extends AnAction {
         }
         return "jjt".equalsIgnoreCase(extension)
                 || "jjtemplate".equalsIgnoreCase(extension)
-                || JjtemplateFileType.INSTANCE.getDefaultExtension().equalsIgnoreCase(extension)
+                || JJTemplateFileType.INSTANCE.getDefaultExtension().equalsIgnoreCase(extension)
                 || "json".equalsIgnoreCase(extension)
                 || JsonFileType.INSTANCE.getDefaultExtension().equalsIgnoreCase(extension);
     }

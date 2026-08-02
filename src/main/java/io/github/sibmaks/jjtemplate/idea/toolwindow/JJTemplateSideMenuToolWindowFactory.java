@@ -40,7 +40,7 @@ import io.github.sibmaks.jjtemplate.compiler.runtime.TemplateExpressionFactory;
 import io.github.sibmaks.jjtemplate.compiler.runtime.expression.object.ObjectFieldElement;
 import io.github.sibmaks.jjtemplate.compiler.runtime.reflection.MethodResolver;
 import io.github.sibmaks.jjtemplate.compiler.runtime.visitor.TemplateTypeInferenceVisitor;
-import io.github.sibmaks.jjtemplate.idea.lang.JjtemplateFileType;
+import io.github.sibmaks.jjtemplate.idea.lang.JJTemplateFileType;
 import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
 import io.github.sibmaks.jjtemplate.lexer.api.Keyword;
 import io.github.sibmaks.jjtemplate.lexer.api.Token;
@@ -70,8 +70,8 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFactory, DumbAware {
-    private static final Logger LOG = Logger.getInstance(JjtemplateSideMenuToolWindowFactory.class);
+public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFactory, DumbAware {
+    private static final Logger LOG = Logger.getInstance(JJTemplateSideMenuToolWindowFactory.class);
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private static final TemplateCompiler COMPILER = TemplateCompiler.getInstance();
@@ -192,7 +192,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                 return;
             }
 
-            var sourceFile = getCurrentJjtemplateFile(project);
+            var sourceFile = getCurrentJJTemplateFile(project);
             if (sourceFile == null) {
                 return;
             }
@@ -203,7 +203,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             }
 
             var rendered = compileSource(source, contextJson);
-            var output = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(rendered);
+            var output = createPrettyWriter(JJTemplateIndentOptions.getIndent(project)).writeValueAsString(rendered);
 
             openReadOnlyOutput(
                     project,
@@ -238,7 +238,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         }
         if (value instanceof List<?> list) {
             return list.stream()
-                    .map(JjtemplateSideMenuToolWindowFactory::adaptFunctionMockValue)
+                    .map(JJTemplateSideMenuToolWindowFactory::adaptFunctionMockValue)
                     .toList();
         }
         return value;
@@ -280,7 +280,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             @NotNull List<OptimizerControl> controls
     ) {
         try {
-            var sourceFile = getCurrentJjtemplateFile(project);
+            var sourceFile = getCurrentJJTemplateFile(project);
             if (sourceFile == null) {
                 return;
             }
@@ -297,12 +297,12 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             var output = optimizeSource(
                     source,
                     optimizers,
-                    JjtemplateIndentOptions.getIndent(project)
+                    JJTemplateIndentOptions.getIndent(project)
             );
             openReadOnlyOutput(
                     project,
                     sourceFile.getNameWithoutExtension() + "-optimized.jjt",
-                    JjtemplateFileType.INSTANCE,
+                    JJTemplateFileType.INSTANCE,
                     output
             );
         } catch (Exception exception) {
@@ -379,7 +379,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             @NotNull EditorTextField contextInput
     ) {
         try {
-            var sourceFile = getCurrentJjtemplateFile(project);
+            var sourceFile = getCurrentJJTemplateFile(project);
             if (sourceFile == null) {
                 return;
             }
@@ -391,14 +391,14 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             }
 
             var contextTemplate = buildContextTemplate(source);
-            var pretty = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(contextTemplate);
+            var pretty = createPrettyWriter(JJTemplateIndentOptions.getIndent(project)).writeValueAsString(contextTemplate);
             contextInput.setText(pretty);
         } catch (Exception exception) {
             showError(project, "Context generation failed:\n" + getRootMessage(exception));
         }
     }
 
-    private static VirtualFile getCurrentJjtemplateFile(@NotNull Project project) {
+    private static VirtualFile getCurrentJJTemplateFile(@NotNull Project project) {
         var editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
         if (editor == null) {
             showError(project, "Open a JJTemplate file in the editor first.");
@@ -406,7 +406,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         }
 
         var sourceFile = FileDocumentManager.getInstance().getFile(editor.getDocument());
-        if (sourceFile == null || isNotJjtemplateFile(sourceFile)) {
+        if (sourceFile == null || isNotJJTemplateFile(sourceFile)) {
             showError(project, "Current file is not a JJTemplate file (*.jjt, *.jjtemplate).");
             return null;
         }
@@ -825,7 +825,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     private static String formatContextJson(@NotNull Project project, @NotNull EditorTextField contextInput) {
         try {
             var parsed = MAPPER.readValue(contextInput.getText(), MAP_TYPE);
-            var pretty = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(parsed);
+            var pretty = createPrettyWriter(JJTemplateIndentOptions.getIndent(project)).writeValueAsString(parsed);
             contextInput.setText(pretty);
             return pretty;
         } catch (Exception exception) {
@@ -834,8 +834,8 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         }
     }
 
-    private static boolean isNotJjtemplateFile(@NotNull VirtualFile file) {
-        if (file.getFileType() == JjtemplateFileType.INSTANCE) {
+    private static boolean isNotJJTemplateFile(@NotNull VirtualFile file) {
+        if (file.getFileType() == JJTemplateFileType.INSTANCE) {
             return false;
         }
         var extension = file.getExtension();
@@ -843,7 +843,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     }
 
     private static @NotNull ObjectWriter createPrettyWriter(int jsonIndent) {
-        var indent = " ".repeat(JjtemplateIndentOptions.normalize(jsonIndent));
+        var indent = " ".repeat(JJTemplateIndentOptions.normalize(jsonIndent));
         var indenter = new DefaultIndenter(indent, DefaultIndenter.SYS_LF);
         var printer = new DefaultPrettyPrinter()
                 .withObjectIndenter(indenter)

@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-class JjtemplateGotoDeclarationHandlerTest {
+class JJTemplateGotoDeclarationHandlerTest {
 
     @Test
     void doesNotResolveReferenceToLaterDefinition() {
@@ -20,7 +20,7 @@ class JjtemplateGotoDeclarationHandlerTest {
 
         var definitionUsage = source.indexOf(".definition") + 1;
 
-        assertNull(JjtemplateGotoDeclarationHandler.findDefinitionsKeyDefinition(
+        assertNull(JJTemplateGotoDeclarationHandler.findDefinitionsKeyDefinition(
                 source,
                 "definition",
                 definitionUsage

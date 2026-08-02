@@ -2,8 +2,8 @@ package io.github.sibmaks.jjtemplate.idea.lang;
 
 import java.util.ArrayDeque;
 
-public final class JjtemplateJsonLikeFormatter {
-    private JjtemplateJsonLikeFormatter() {
+public final class JJTemplateJsonLikeFormatter {
+    private JJTemplateJsonLikeFormatter() {
     }
 
     public static String format(String source, int indentSize) {
