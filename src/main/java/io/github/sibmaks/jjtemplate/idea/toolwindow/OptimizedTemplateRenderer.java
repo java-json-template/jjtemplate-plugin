@@ -210,8 +210,8 @@ final class OptimizedTemplateRenderer {
     private static String rangeDeclaration(RangeTemplateExpression range) {
         return interpolation(
                 renderSource(range.getName())
-                        + " range " + range.getItemVariableName()
-                        + "," + range.getIndexVariableName()
+                        + " range " + range.getFirstVariableName()
+                        + "," + range.getSecondVariableName()
                         + " of " + renderSource(range.getSource())
         );
     }

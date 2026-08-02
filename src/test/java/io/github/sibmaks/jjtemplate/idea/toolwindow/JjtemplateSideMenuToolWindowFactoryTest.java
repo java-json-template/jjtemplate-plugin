@@ -21,7 +21,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Test
-    void compileSourceSupportsLegacyDefinitionExpressions() throws Exception {
+    void compileSourceSupportsWrappedDefinitionExpressions() throws Exception {
         var source = """
                 {
                   "definitions": [
@@ -29,9 +29,9 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                       "value": "text"
                     },
                     {
-                      "result switch .value": {
-                        "'text'": "matched",
-                        "else": "fallback"
+                      "{{ result switch .value }}": {
+                        "{{ 'text' }}": "matched",
+                        "{{ else }}": "fallback"
                       }
                     }
                   ],
@@ -39,7 +39,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, "{}", true);
+        var rendered = JjtemplateSideMenuToolWindowFactory.compileSource(source, "{}");
 
         assertEquals("matched", rendered);
     }
@@ -240,18 +240,18 @@ class JjtemplateSideMenuToolWindowFactoryTest {
     }
 
     @Test
-    void buildContextTemplateSupportsLegacyDefinitionExpressions() throws Exception {
+    void buildContextTemplateSupportsWrappedDefinitionExpressions() throws Exception {
         var source = """
                 {
                   "definitions": [
                     {
-                      "choice switch .request.kind": {
-                        "'match'": "{{ .request.label }}",
-                        "else": "fallback"
+                      "{{ choice switch .request.kind }}": {
+                        "{{ 'match' }}": "{{ .request.label }}",
+                        "{{ else }}": "fallback"
                       }
                     },
                     {
-                      "items range item,index of .request.values": {
+                      "{{ items range item,index of .request.values }}": {
                         "value": "{{ .item }}",
                         "position": "{{ .index }}"
                       }
@@ -264,7 +264,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                 }
                 """;
 
-        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source, true);
+        var generated = JjtemplateSideMenuToolWindowFactory.buildContextTemplate(source);
 
         var expected = MAPPER.readTree("""
                 {
@@ -331,7 +331,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
     }
 
     @Test
-    void optimizeSourceSupportsLegacyDefinitionExpressions() throws Exception {
+    void optimizeSourceSupportsWrappedDefinitionExpressions() throws Exception {
         var source = """
                 {
                   "definitions": [
@@ -339,9 +339,9 @@ class JjtemplateSideMenuToolWindowFactoryTest {
                       "value": "text"
                     },
                     {
-                      "result switch .value": {
-                        "'text'": "matched",
-                        "else": "fallback"
+                      "{{ result switch .value }}": {
+                        "{{ 'text' }}": "matched",
+                        "{{ else }}": "fallback"
                       }
                     }
                   ],
@@ -352,8 +352,7 @@ class JjtemplateSideMenuToolWindowFactoryTest {
         var optimized = JjtemplateSideMenuToolWindowFactory.optimizeSource(
                 source,
                 List.of(),
-                2,
-                true
+                2
         );
         var optimizedScript = MAPPER.readValue(optimized, TemplateScript.class);
         var rendered = TemplateCompiler.getInstance().compile(optimizedScript).render();

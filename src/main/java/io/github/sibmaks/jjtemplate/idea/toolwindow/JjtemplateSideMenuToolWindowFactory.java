@@ -27,7 +27,6 @@ import com.intellij.ui.EditorTextField;
 import com.intellij.ui.LanguageTextField;
 import com.intellij.ui.content.ContentFactory;
 import com.intellij.util.ui.JBUI;
-import io.github.sibmaks.jjtemplate.compiler.api.TemplateCompileOptions;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateCompiler;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateScript;
 import io.github.sibmaks.jjtemplate.compiler.impl.CompiledTemplateImpl;
@@ -76,11 +75,6 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private static final TemplateCompiler COMPILER = TemplateCompiler.getInstance();
-    private static final TemplateCompiler LEGACY_COMPILER = TemplateCompiler.getInstance(
-            TemplateCompileOptions.builder()
-                    .definitionExpressionFallback(true)
-                    .build()
-    );
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
@@ -95,33 +89,18 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             panel.add(createSectionLabel("Context JSON (supports function mocks)"), BorderLayout.NORTH);
             panel.add(contextInput, BorderLayout.CENTER);
 
-            var legacyMode = new JCheckBox("Compile in legacy mode");
-            legacyMode.setToolTipText("Compile unwrapped switch and range definition keys as expressions");
-            legacyMode.setBorder(JBUI.Borders.emptyTop(8));
-
             var actionsPanel = createActionsPanel();
             var formatContextButton = new JButton("Format JSON");
             formatContextButton.addActionListener(event -> formatContextJson(project, contextInput));
             var generateContextButton = new JButton("Generate Context");
-            generateContextButton.addActionListener(event -> generateContext(
-                    project,
-                    contextInput,
-                    legacyMode.isSelected()
-            ));
+            generateContextButton.addActionListener(event -> generateContext(project, contextInput));
             var compileButton = new JButton("Compile");
-            compileButton.addActionListener(event -> compileCurrentFile(
-                    project,
-                    contextInput,
-                    legacyMode.isSelected()
-            ));
+            compileButton.addActionListener(event -> compileCurrentFile(project, contextInput));
             actionsPanel.add(formatContextButton);
             actionsPanel.add(generateContextButton);
             actionsPanel.add(compileButton);
 
-            var footer = new JPanel(new BorderLayout());
-            footer.add(legacyMode, BorderLayout.NORTH);
-            footer.add(actionsPanel, BorderLayout.SOUTH);
-            panel.add(footer, BorderLayout.SOUTH);
+            panel.add(actionsPanel, BorderLayout.SOUTH);
             return panel;
         } catch (Exception exception) {
             var fallback = new JPanel(new BorderLayout());
@@ -167,18 +146,11 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         for (var control : controls) {
             optimizerList.add(control.checkBox());
         }
-        var legacyMode = new JCheckBox("Optimize in legacy mode");
-        legacyMode.setToolTipText("Process unwrapped switch and range definition keys as expressions");
-        optimizerList.add(legacyMode);
         panel.add(optimizerList, BorderLayout.CENTER);
 
         var actionsPanel = createActionsPanel();
         var optimizeButton = new JButton("Optimize");
-        optimizeButton.addActionListener(event -> optimizeCurrentFile(
-                project,
-                controls,
-                legacyMode.isSelected()
-        ));
+        optimizeButton.addActionListener(event -> optimizeCurrentFile(project, controls));
         actionsPanel.add(optimizeButton);
         panel.add(actionsPanel, BorderLayout.SOUTH);
         return panel;
@@ -212,8 +184,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
 
     private static void compileCurrentFile(
             @NotNull Project project,
-            @NotNull EditorTextField contextInput,
-            boolean legacyMode
+            @NotNull EditorTextField contextInput
     ) {
         try {
             var contextJson = formatContextJson(project, contextInput);
@@ -231,7 +202,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                 return;
             }
 
-            var rendered = compileSource(source, contextJson, legacyMode);
+            var rendered = compileSource(source, contextJson);
             var output = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(rendered);
 
             openReadOnlyOutput(
@@ -247,17 +218,8 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     }
 
     static Object compileSource(@NotNull String source, @NotNull String contextJson) throws Exception {
-        return compileSource(source, contextJson, false);
-    }
-
-    static Object compileSource(
-            @NotNull String source,
-            @NotNull String contextJson,
-            boolean legacyMode
-    ) throws Exception {
         var script = MAPPER.readValue(source, TemplateScript.class);
-        var compiler = legacyMode ? LEGACY_COMPILER : COMPILER;
-        var compiled = compiler.compile(script);
+        var compiled = COMPILER.compile(script);
         var context = adaptFunctionMocks(MAPPER.readValue(contextJson, MAP_TYPE));
         return compiled.render(context);
     }
@@ -315,8 +277,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
 
     private static void optimizeCurrentFile(
             @NotNull Project project,
-            @NotNull List<OptimizerControl> controls,
-            boolean legacyMode
+            @NotNull List<OptimizerControl> controls
     ) {
         try {
             var sourceFile = getCurrentJjtemplateFile(project);
@@ -336,8 +297,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             var output = optimizeSource(
                     source,
                     optimizers,
-                    JjtemplateIndentOptions.getIndent(project),
-                    legacyMode
+                    JjtemplateIndentOptions.getIndent(project)
             );
             openReadOnlyOutput(
                     project,
@@ -354,37 +314,24 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     static @NotNull String optimizeSource(@NotNull String source,
                                           @NotNull List<TemplateOptimizer> optimizers,
                                           int jsonIndent) throws Exception {
-        return optimizeSource(source, optimizers, jsonIndent, false);
-    }
-
-    static @NotNull String optimizeSource(
-            @NotNull String source,
-            @NotNull List<TemplateOptimizer> optimizers,
-            int jsonIndent,
-            boolean legacyMode
-    ) throws Exception {
         var script = MAPPER.readValue(source, TemplateScript.class);
-        var compiled = applyOptimizers(compileUnoptimized(script, legacyMode), optimizers);
+        var compiled = applyOptimizers(compileUnoptimized(script), optimizers);
         var optimizedScript = OptimizedTemplateRenderer.render(compiled);
         return createPrettyWriter(jsonIndent).writeValueAsString(optimizedScript);
     }
 
-    private static @NotNull CompiledTemplateImpl compileUnoptimized(
-            @NotNull TemplateScript script,
-            boolean legacyMode
-    ) {
+    private static @NotNull CompiledTemplateImpl compileUnoptimized(@NotNull TemplateScript script) {
         var expressionFactory = new TemplateExpressionFactory(TemplateEvaluationOptions.getDefault());
         var rootFactory = new RootTemplateExpressionFactory(
                 new TemplateTypeInferenceVisitor(),
                 expressionFactory,
-                new ExpressionParser(),
-                legacyMode
+                new ExpressionParser()
         );
         var internalVariables = new ArrayList<ObjectFieldElement>();
         var definitions = script.getDefinitions();
         if (definitions != null) {
             for (var definition : definitions) {
-                var compiledDefinition = rootFactory.compileDefinitionObject(definition);
+                var compiledDefinition = rootFactory.compileObject(definition);
                 for (var element : compiledDefinition.getElements()) {
                     if (!(element instanceof ObjectFieldElement)) {
                         throw new IllegalArgumentException("Unsupported definition element: " + element.getClass());
@@ -429,8 +376,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
 
     private static void generateContext(
             @NotNull Project project,
-            @NotNull EditorTextField contextInput,
-            boolean legacyMode
+            @NotNull EditorTextField contextInput
     ) {
         try {
             var sourceFile = getCurrentJjtemplateFile(project);
@@ -444,7 +390,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
                 return;
             }
 
-            var contextTemplate = buildContextTemplate(source, legacyMode);
+            var contextTemplate = buildContextTemplate(source);
             var pretty = createPrettyWriter(JjtemplateIndentOptions.getIndent(project)).writeValueAsString(contextTemplate);
             contextInput.setText(pretty);
         } catch (Exception exception) {
@@ -475,16 +421,12 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     }
 
     static Map<String, Object> buildContextTemplate(@NotNull String source) {
-        return buildContextTemplate(source, false);
-    }
-
-    static Map<String, Object> buildContextTemplate(@NotNull String source, boolean legacyMode) {
         var root = new LinkedHashMap<String, Object>();
         try {
             var scriptNode = MAPPER.readTree(source);
             var globalDefinitions = extractGlobalDefinitions(scriptNode);
             var script = MAPPER.treeToValue(scriptNode, TemplateScript.class);
-            var definitions = prepareDefinitionsForContext(script.getDefinitions(), legacyMode);
+            var definitions = script.getDefinitions() == null ? List.<Map<String, Object>>of() : script.getDefinitions();
             var localDefinitions = collectLocalDefinitions(definitions, globalDefinitions);
             localDefinitions.addAll(collectExpressionDefinitionNames(definitions));
 
@@ -501,67 +443,6 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
             // Keep empty context if parsing fails.
         }
         return root;
-    }
-
-    private static @NotNull List<Map<String, Object>> prepareDefinitionsForContext(
-            List<? extends Map<String, Object>> definitions,
-            boolean legacyMode
-    ) {
-        if (definitions == null) {
-            return List.of();
-        }
-        return definitions.stream()
-                .map(definition -> prepareDefinitionMapForContext(definition, legacyMode, false))
-                .toList();
-    }
-
-    private static @NotNull Map<String, Object> prepareDefinitionMapForContext(
-            @NotNull Map<?, ?> definition,
-            boolean legacyMode,
-            boolean forceExpression
-    ) {
-        var prepared = new LinkedHashMap<String, Object>(definition.size());
-        for (var entry : definition.entrySet()) {
-            var rawKey = String.valueOf(entry.getKey());
-            var expressionKey = legacyMode
-                    && !rawKey.contains("{{")
-                    && (forceExpression || looksLikeDefinitionExpression(rawKey));
-            var preparedKey = expressionKey ? "{{ " + rawKey + " }}" : rawKey;
-            prepared.put(
-                    preparedKey,
-                    prepareDefinitionValueForContext(
-                            entry.getValue(),
-                            legacyMode,
-                            looksLikeSwitchExpression(rawKey)
-                    )
-            );
-        }
-        return prepared;
-    }
-
-    private static Object prepareDefinitionValueForContext(
-            Object value,
-            boolean legacyMode,
-            boolean forceExpression
-    ) {
-        if (value instanceof Map<?, ?> map) {
-            return prepareDefinitionMapForContext(map, legacyMode, forceExpression);
-        }
-        if (value instanceof List<?> list) {
-            return list.stream()
-                    .map(item -> prepareDefinitionValueForContext(item, legacyMode, false))
-                    .toList();
-        }
-        return value;
-    }
-
-    private static boolean looksLikeDefinitionExpression(@NotNull String key) {
-        var lower = key.trim().toLowerCase();
-        return lower.contains(" switch ") || lower.contains(" range ");
-    }
-
-    private static boolean looksLikeSwitchExpression(@NotNull String key) {
-        return key.trim().toLowerCase().contains(" switch ");
     }
 
     private static void collectContextPaths(@NotNull Map<String, Object> root,
@@ -587,7 +468,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
         }
     }
 
-    private static Set<String> collectLocalDefinitions(@NotNull List<Map<String, Object>> definitions,
+    private static Set<String> collectLocalDefinitions(@NotNull List<? extends Map<String, Object>> definitions,
                                                        @NotNull Set<String> globalDefinitions) {
         var result = new HashSet<String>();
         for (var definition : definitions) {
@@ -637,7 +518,7 @@ public final class JjtemplateSideMenuToolWindowFactory implements ToolWindowFact
     }
 
     private static Set<String> collectExpressionDefinitionNames(
-            @NotNull List<Map<String, Object>> definitions
+            @NotNull List<? extends Map<String, Object>> definitions
     ) {
         var result = new HashSet<String>();
         for (var definition : definitions) {
