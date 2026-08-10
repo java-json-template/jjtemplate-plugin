@@ -14,7 +14,10 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("PMD.CloseResource")
 class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTestCase5 {
@@ -182,6 +185,55 @@ class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
 
         assertFalse(outside.contains("item"), outside::toString);
         assertFalse(outside.contains("index"), outside::toString);
+    }
+
+    @Test
+    void suggestsVariablesForPrefixBeforeExistingDot() {
+        getFixture().configureByText("variable-before-dot.jjt", """
+                {
+                  "definitions": [
+                    {
+                      "{{ attachements range key,value of .object }}": "{{ .key }} = {{ .value }}"
+                    }
+                  ],
+                  "template": "{{ at<caret>. }}"
+                }
+                """);
+
+        var lookups = lookupStrings(getFixture().completeBasic());
+
+        assertTrue(lookups.contains("attachements"), lookups::toString);
+    }
+
+    @Test
+    void doesNotSuggestCompletionForNumericPrefix() {
+        getFixture().configureByText("number-before-dot.jjt", """
+                {
+                  "definitions": [
+                    {
+                      "{{ attachements range key,value of .object }}": "{{ .key }} = {{ .value }}"
+                    }
+                  ],
+                  "template": "{{ 1<caret>. }}"
+                }
+                """);
+
+        var lookups = getFixture().completeBasic();
+
+        assertTrue(lookups == null || lookups.length == 0, () -> Arrays.toString(lookups));
+
+        getFixture().configureByText("number.jjt", """
+                {
+                  "template": "{{ 1<caret> }}"
+                }
+                """);
+
+        var plainNumberLookups = getFixture().completeBasic();
+
+        assertTrue(
+                plainNumberLookups == null || plainNumberLookups.length == 0,
+                () -> Arrays.toString(plainNumberLookups)
+        );
     }
 
     @Override

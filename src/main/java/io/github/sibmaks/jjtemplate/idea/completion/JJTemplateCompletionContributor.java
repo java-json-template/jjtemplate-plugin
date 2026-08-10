@@ -42,10 +42,13 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
                         if (!isInsideTemplate(parameters)) {
                             return;
                         }
+                        if (isCompletingNumber(parameters)) {
+                            return;
+                        }
 
                         var dotContext = resolveDotContext(parameters);
                         if (dotContext != null) {
-                            addDotVariableCompletions(dotContext, result);
+                            addVariableCompletions(dotContext, result);
                             return;
                         }
 
@@ -53,6 +56,11 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
                         if (namespaceContext != null) {
                             addNamespaceFunctionCompletions(namespaceContext, result);
                             return;
+                        }
+
+                        var variableContext = resolveVariableContext(parameters);
+                        if (variableContext != null) {
+                            addVariableCompletions(variableContext, result);
                         }
 
                         for (var keyword : Keyword.values()) {
@@ -119,15 +127,15 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
                 });
     }
 
-    private static void addDotVariableCompletions(@NotNull DotContext dotContext,
-                                                  @NotNull CompletionResultSet result) {
-        for (var localVariable : dotContext.localVariables()) {
+    private static void addVariableCompletions(@NotNull VariableContext variableContext,
+                                               @NotNull CompletionResultSet result) {
+        for (var localVariable : variableContext.localVariables()) {
             result.addElement(
                     LookupElementBuilder.create(localVariable)
                             .withTypeText("local variable", true)
             );
         }
-        for (var globalVariable : dotContext.recentGlobalVariables()) {
+        for (var globalVariable : variableContext.recentGlobalVariables()) {
             result.addElement(
                     LookupElementBuilder.create(globalVariable)
                             .withTypeText("global variable", true)
@@ -135,7 +143,7 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
         }
     }
 
-    private static DotContext resolveDotContext(@NotNull CompletionParameters parameters) {
+    private static VariableContext resolveDotContext(@NotNull CompletionParameters parameters) {
         var document = parameters.getEditor().getDocument();
         var offset = parameters.getOffset();
         if (offset <= 0 || offset > document.getTextLength()) {
@@ -159,13 +167,55 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
             return null;
         }
 
+        return createVariableContext(source, tokens, dotIndex, offset);
+    }
+
+    private static VariableContext resolveVariableContext(@NotNull CompletionParameters parameters) {
+        var document = parameters.getEditor().getDocument();
+        var offset = parameters.getOffset();
+        if (offset < 0 || offset > document.getTextLength()) {
+            return null;
+        }
+
+        var source = document.getText();
+        List<Token> tokens;
+        try {
+            tokens = new TemplateLexer(source).tokens();
+        } catch (Exception ignored) {
+            return null;
+        }
+
+        var completionTokenIndex = findCompletionTokenIndex(tokens, offset);
+        return createVariableContext(source, tokens, completionTokenIndex, offset);
+    }
+
+    private static VariableContext createVariableContext(@NotNull String source,
+                                                         @NotNull List<Token> tokens,
+                                                         int completionTokenIndex,
+                                                         int offset) {
+
         var scope = JJTemplateScopeAnalyzer.analyze(source);
         var localVariables = new LinkedHashSet<>(extractLocalDefinitions(source));
         var rangeBindings = scope.bindingsAt(offset);
         localVariables.addAll(rangeBindings);
 
-        var recentGlobalVariables = collectRecentGlobalVariables(tokens, dotIndex, localVariables, scope);
-        return new DotContext(localVariables, recentGlobalVariables);
+        var recentGlobalVariables = collectRecentGlobalVariables(
+                tokens,
+                completionTokenIndex,
+                localVariables,
+                scope
+        );
+        return new VariableContext(localVariables, recentGlobalVariables);
+    }
+
+    private static int findCompletionTokenIndex(@NotNull List<Token> tokens, int offset) {
+        for (int i = 0; i < tokens.size(); i++) {
+            var token = tokens.get(i);
+            if (token.end >= offset) {
+                return i;
+            }
+        }
+        return tokens.size();
     }
 
     private static boolean isInsideTemplate(@NotNull CompletionParameters parameters) {
@@ -179,6 +229,24 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static boolean isCompletingNumber(@NotNull CompletionParameters parameters) {
+        var document = parameters.getEditor().getDocument();
+        var offset = parameters.getOffset();
+        if (offset <= 0 || offset > document.getTextLength()) {
+            return false;
+        }
+        try {
+            for (var token : new TemplateLexer(document.getText()).tokens()) {
+                if (token.type == TokenType.NUMBER && token.start < offset && token.end >= offset) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
+        return false;
     }
 
     private static boolean isInsideTemplateAt(@NotNull List<Token> tokens, int offset) {
@@ -375,7 +443,7 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
         return Character.isLetterOrDigit(ch) || ch == '_' || ch == ':';
     }
 
-    private record DotContext(Set<String> localVariables, Set<String> recentGlobalVariables) {
+    private record VariableContext(Set<String> localVariables, Set<String> recentGlobalVariables) {
     }
 
     record NamespaceContext(String namespace, String functionPrefix) {
