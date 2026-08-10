@@ -40,9 +40,13 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
                                                   @NotNull ProcessingContext context,
                                                   @NotNull CompletionResultSet result) {
                         if (!isInsideTemplate(parameters)) {
+                            JJTemplateJsonSchemaCompletionSupport.addCompletions(parameters, result);
                             return;
                         }
                         if (isCompletingNumber(parameters)) {
+                            return;
+                        }
+                        if (isCompletingPropertyChain(parameters)) {
                             return;
                         }
 
@@ -247,6 +251,73 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
             return false;
         }
         return false;
+    }
+
+    private static boolean isCompletingPropertyChain(@NotNull CompletionParameters parameters) {
+        var document = parameters.getEditor().getDocument();
+        var offset = parameters.getOffset();
+        if (offset <= 0 || offset > document.getTextLength()) {
+            return false;
+        }
+
+        List<Token> tokens;
+        try {
+            tokens = new TemplateLexer(document.getText()).tokens();
+        } catch (Exception ignored) {
+            return false;
+        }
+
+        var completionTokenIndex = findTokenAtCompletion(tokens, offset);
+        if (completionTokenIndex < 0) {
+            return false;
+        }
+
+        var completionToken = tokens.get(completionTokenIndex);
+        int delimiterIndex;
+        if (completionToken.type == TokenType.DOT || completionToken.type == TokenType.SAFE_DOT) {
+            delimiterIndex = completionTokenIndex;
+        } else if (completionToken.type == TokenType.IDENT) {
+            delimiterIndex = findPreviousNonTextTokenIndex(
+                    tokens,
+                    completionTokenIndex - 1,
+                    completionTokenIndex - 1
+            );
+        } else {
+            return false;
+        }
+
+        return isPropertyChainDelimiter(tokens, delimiterIndex);
+    }
+
+    private static int findTokenAtCompletion(@NotNull List<Token> tokens, int offset) {
+        for (int i = 0; i < tokens.size(); i++) {
+            var token = tokens.get(i);
+            if (token.start < offset && token.end >= offset) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isPropertyChainDelimiter(@NotNull List<Token> tokens, int delimiterIndex) {
+        if (delimiterIndex < 0) {
+            return false;
+        }
+        var delimiter = tokens.get(delimiterIndex);
+        if (delimiter.type == TokenType.SAFE_DOT) {
+            return true;
+        }
+        if (delimiter.type != TokenType.DOT) {
+            return false;
+        }
+
+        var previousIndex = findPreviousNonTextTokenIndex(tokens, delimiterIndex - 1, delimiterIndex - 1);
+        if (previousIndex < 0) {
+            return false;
+        }
+        var previous = tokens.get(previousIndex);
+        return previous.end == delimiter.start
+                && (previous.type == TokenType.IDENT || previous.type == TokenType.RPAREN);
     }
 
     private static boolean isInsideTemplateAt(@NotNull List<Token> tokens, int offset) {

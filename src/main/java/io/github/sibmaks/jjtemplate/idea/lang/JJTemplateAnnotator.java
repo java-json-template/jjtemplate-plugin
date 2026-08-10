@@ -2,6 +2,7 @@ package io.github.sibmaks.jjtemplate.idea.lang;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonToken;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
@@ -19,12 +20,17 @@ import io.github.sibmaks.jjtemplate.lexer.api.Token;
 import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public final class JJTemplateAnnotator implements Annotator {
+    private static final JsonFactory JSON_FACTORY = new JsonFactory();
     private static final TextAttributes GLOBAL_VARIABLE_STRIPE_ATTRIBUTES = createGlobalVariableStripeAttributes();
 
     private static void highlightJsonLike(
@@ -392,11 +398,23 @@ public final class JJTemplateAnnotator implements Annotator {
         if (text.isBlank()) {
             return;
         }
-        try (var parser = new JsonFactory().createParser(text)) {
+        try (var parser = JSON_FACTORY.createParser(text)) {
+            var objectKeys = new ArrayDeque<Map<String, List<TextRange>>>();
+            var duplicateKeys = new ArrayList<DuplicateKeys>();
             var token = parser.nextToken();
             while (token != null) {
+                if (token == JsonToken.START_OBJECT) {
+                    objectKeys.addLast(new LinkedHashMap<>());
+                } else if (token == JsonToken.FIELD_NAME && !objectKeys.isEmpty()) {
+                    var key = parser.currentName();
+                    var keyRange = jsonKeyRange(text, parser.currentTokenLocation().getCharOffset());
+                    objectKeys.getLast().computeIfAbsent(key, ignored -> new ArrayList<>()).add(keyRange);
+                } else if (token == JsonToken.END_OBJECT && !objectKeys.isEmpty()) {
+                    collectDuplicateKeys(objectKeys.removeLast(), duplicateKeys);
+                }
                 token = parser.nextToken();
             }
+            annotateDuplicateKeys(holder, duplicateKeys);
         } catch (JsonParseException e) {
             var offset = toOffset(text, e);
             if (isInsideTemplate(text, offset) && !isInvalidJsonEscape(e)) {
@@ -408,6 +426,52 @@ public final class JJTemplateAnnotator implements Annotator {
         } catch (Exception ignored) {
             // Do not block editing if JSON parser is unavailable in IDE runtime.
         }
+    }
+
+    private static TextRange jsonKeyRange(String text, long tokenOffset) {
+        var start = Math.clamp((int) tokenOffset, 0, Math.max(0, text.length() - 1));
+        if (start > 0 && text.charAt(start) != '"' && text.charAt(start - 1) == '"') {
+            start--;
+        }
+        if (text.charAt(start) != '"') {
+            return TextRange.from(start, 1);
+        }
+
+        var escaped = false;
+        for (int end = start + 1; end < text.length(); end++) {
+            var ch = text.charAt(end);
+            if (escaped) {
+                escaped = false;
+            } else if (ch == '\\') {
+                escaped = true;
+            } else if (ch == '"') {
+                return TextRange.create(start, end + 1);
+            }
+        }
+        return TextRange.from(start, 1);
+    }
+
+    private static void collectDuplicateKeys(Map<String, List<TextRange>> objectKeys,
+                                             List<DuplicateKeys> duplicateKeys) {
+        for (var entry : objectKeys.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                duplicateKeys.add(new DuplicateKeys(entry.getKey(), entry.getValue()));
+            }
+        }
+    }
+
+    private static void annotateDuplicateKeys(AnnotationHolder holder, List<DuplicateKeys> duplicateKeys) {
+        for (var duplicate : duplicateKeys) {
+            var message = "Object contains duplicate keys '" + duplicate.key() + "'";
+            for (var range : duplicate.ranges()) {
+                holder.newAnnotation(HighlightSeverity.WARNING, message)
+                        .range(range)
+                        .create();
+            }
+        }
+    }
+
+    private record DuplicateKeys(String key, List<TextRange> ranges) {
     }
 
     private static boolean isInsideTemplate(String text, int offset) {
@@ -469,7 +533,7 @@ public final class JJTemplateAnnotator implements Annotator {
         };
     }
 
-    private static boolean isDefinitionName(List<Token> tokens, int identIndex) {
+    static boolean isDefinitionName(List<Token> tokens, int identIndex) {
         var next = findNextNonTextToken(tokens, identIndex + 1);
         if (next == null || next.type() != TokenType.KEYWORD) {
             return false;
@@ -477,7 +541,7 @@ public final class JJTemplateAnnotator implements Annotator {
         return Keyword.SWITCH.eq(next.token().lexeme) || Keyword.RANGE.eq(next.token().lexeme);
     }
 
-    private static boolean isRangeBindingName(List<Token> tokens, int identIndex) {
+    static boolean isRangeBindingName(List<Token> tokens, int identIndex) {
         var previous = findPreviousNonTextToken(tokens, identIndex - 1);
         if (previous == null) {
             return false;
@@ -652,7 +716,7 @@ public final class JJTemplateAnnotator implements Annotator {
         return !rangeBindings.contains(token.lexeme);
     }
 
-    private static boolean isRootVariable(List<Token> tokens, int identIndex) {
+    static boolean isRootVariable(List<Token> tokens, int identIndex) {
         var previous = findPreviousNonTextToken(tokens, identIndex - 1);
         if (previous == null || previous.type() != TokenType.DOT) {
             return false;
@@ -797,13 +861,14 @@ public final class JJTemplateAnnotator implements Annotator {
 
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
-        if (!(element instanceof JJTemplateFile)) {
+        if (!(element instanceof JJTemplateFile file)) {
             return;
         }
         var text = element.getText();
         var localDefinitions = UnusedDefinitionAnalyzer.findDefinitions(text);
         highlightJsonLike(text, holder, localDefinitions);
         validateJson(text, holder);
+        JJTemplateJsonSchemaValidationSupport.validate(file, holder);
         try {
             var tokens = new TemplateLexer(text).tokens();
             var rangeBindings = collectRangeBindings(tokens);

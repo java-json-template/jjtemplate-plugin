@@ -126,6 +126,18 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
         return null;
     }
 
+    private static int nextNonTextTokenIndex(List<Token> tokens, int fromInclusive, int toExclusive) {
+        if (fromInclusive < 0) {
+            return -1;
+        }
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).type != TokenType.TEXT) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private static Definition resolveDefinition(String text,
                                                 List<Token> tokens,
                                                 List<TemplateRange> ranges,
@@ -151,18 +163,31 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
                 }
             }
 
-            // range bindings: range <item>, <index> of ...
-            for (int i = range.openTokenIndex() + 5; i < range.closeTokenIndex(); i++) {
-                var kw = tokens.get(i - 5);
-                var item = tokens.get(i - 4);
-                var comma = tokens.get(i - 3);
-                var index = tokens.get(i - 2);
-                var of = tokens.get(i - 1);
-
-                if (kw.type != TokenType.KEYWORD || !Keyword.RANGE.eq(kw.lexeme)) {
+            // range bindings: range <item> of ... or range <item>, <index> of ...
+            for (int i = range.openTokenIndex() + 1; i < range.closeTokenIndex(); i++) {
+                var keyword = tokens.get(i);
+                if (keyword.type != TokenType.KEYWORD || !Keyword.RANGE.eq(keyword.lexeme)) {
                     continue;
                 }
-                if (item.type != TokenType.IDENT || comma.type != TokenType.COMMA || index.type != TokenType.IDENT) {
+                var itemIndex = nextNonTextTokenIndex(tokens, i + 1, range.closeTokenIndex());
+                if (itemIndex < 0 || tokens.get(itemIndex).type != TokenType.IDENT) {
+                    continue;
+                }
+                var item = tokens.get(itemIndex);
+                var afterItemIndex = nextNonTextTokenIndex(tokens, itemIndex + 1, range.closeTokenIndex());
+                Token index = null;
+                Token of;
+                if (afterItemIndex >= 0 && tokens.get(afterItemIndex).type == TokenType.COMMA) {
+                    var indexIndex = nextNonTextTokenIndex(tokens, afterItemIndex + 1, range.closeTokenIndex());
+                    var ofIndex = nextNonTextTokenIndex(tokens, indexIndex + 1, range.closeTokenIndex());
+                    if (indexIndex < 0 || tokens.get(indexIndex).type != TokenType.IDENT || ofIndex < 0) {
+                        continue;
+                    }
+                    index = tokens.get(indexIndex);
+                    of = tokens.get(ofIndex);
+                } else if (afterItemIndex >= 0) {
+                    of = tokens.get(afterItemIndex);
+                } else {
                     continue;
                 }
                 if (of.type != TokenType.KEYWORD || !Keyword.OF.eq(of.lexeme)) {
@@ -172,7 +197,7 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
                 Token binding = null;
                 if (item.lexeme.equals(reference)) {
                     binding = item;
-                } else if (index.lexeme.equals(reference)) {
+                } else if (index != null && index.lexeme.equals(reference)) {
                     binding = index;
                 }
                 if (binding == null || binding.start > usageOffset) {
@@ -205,6 +230,36 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
             }
         }
         return findDefinitionsKeyDefinition(text, reference, usageOffset);
+    }
+
+    static Definition findLocalDefinitionAt(String text, int offset) {
+        List<Token> tokens;
+        try {
+            tokens = new TemplateLexer(text).tokens();
+        } catch (Exception ignored) {
+            return null;
+        }
+        var ranges = buildTemplateRanges(tokens);
+        var enclosing = findEnclosingTemplate(ranges, offset);
+        if (enclosing == null) {
+            return null;
+        }
+        var tokenIndex = findIdentifierAtOffset(tokens, enclosing, offset);
+        if (tokenIndex == null) {
+            return null;
+        }
+        var reference = resolveReference(tokens, enclosing, tokenIndex);
+        if (reference == null) {
+            return null;
+        }
+        return resolveDefinition(
+                text,
+                tokens,
+                ranges,
+                reference,
+                resolveReferencePath(tokens, enclosing, tokenIndex),
+                offset
+        );
     }
 
     private static TextSpan findDefinitionValueScope(String text, int templateEndOffset) {

@@ -236,6 +236,31 @@ class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
         );
     }
 
+    @Test
+    void doesNotSuggestVariablesInPropertyChains() {
+        assertNoCompletions("property-chain-dot.jjt", "{{ .attachements.<caret> }}");
+        assertNoCompletions("property-chain-prefix.jjt", "{{ .attachements.na<caret> }}");
+        assertNoCompletions("safe-property-chain-dot.jjt", "{{ .attachements?.<caret> }}");
+        assertNoCompletions("safe-property-chain-prefix.jjt", "{{ .attachements?.na<caret> }}");
+    }
+
+    private void assertNoCompletions(String fileName, String expression) {
+        getFixture().configureByText(fileName, """
+                {
+                  "definitions": [
+                    {
+                      "{{ attachements range key,value of .object }}": "{{ .key }} = {{ .value }}"
+                    }
+                  ],
+                  "template": "%s"
+                }
+                """.formatted(expression));
+
+        var lookups = getFixture().completeBasic();
+
+        assertTrue(lookups == null || lookups.length == 0, () -> Arrays.toString(lookups));
+    }
+
     @Override
     protected @NotNull String getRelativePath() {
         return "";

@@ -1,6 +1,7 @@
 package io.github.sibmaks.jjtemplate.idea.lang;
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
+import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase5;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SuppressWarnings("PMD.CloseResource")
@@ -41,6 +43,82 @@ class JJTemplateAnnotatorIntegrationTest extends LightJavaCodeInsightFixtureTest
                         .toList()
         );
         globalHighlights.forEach(JJTemplateAnnotatorIntegrationTest::assertErrorStripeMarker);
+    }
+
+    @Test
+    void reportsDuplicateKeysInSameObject() {
+        var source = """
+                {
+                  "template": "first",
+                  "template": "second",
+                  "nested": {
+                    "template": "nested"
+                  }
+                }
+                """;
+        getFixture().configureByText("duplicate-key.jjt", source);
+
+        var duplicateHighlights = getFixture().doHighlighting().stream()
+                .filter(info -> "Object contains duplicate keys 'template'".equals(info.getDescription()))
+                .toList();
+
+        assertEquals(2, duplicateHighlights.size());
+        assertEquals(
+                List.of("\"template\"", "\"template\""),
+                duplicateHighlights.stream()
+                        .map(info -> source.substring(info.startOffset, info.endOffset))
+                        .toList()
+        );
+        duplicateHighlights.forEach(info -> assertEquals(HighlightSeverity.WARNING, info.getSeverity()));
+    }
+
+    @Test
+    void reportsDuplicateKeysInNestedObject() {
+        var source = """
+                {
+                  "template": "root",
+                  "nested": {
+                    "value": 1,
+                    "value": 2
+                  }
+                }
+                """;
+        getFixture().configureByText("nested-duplicate-key.jjt", source);
+
+        var duplicateHighlights = getFixture().doHighlighting().stream()
+                .filter(info -> "Object contains duplicate keys 'value'".equals(info.getDescription()))
+                .toList();
+
+        assertEquals(2, duplicateHighlights.size());
+        assertEquals(
+                List.of("\"value\"", "\"value\""),
+                duplicateHighlights.stream()
+                        .map(info -> source.substring(info.startOffset, info.endOffset))
+                        .toList()
+        );
+        duplicateHighlights.forEach(info -> assertEquals(HighlightSeverity.WARNING, info.getSeverity()));
+    }
+
+    @Test
+    void allowsSameKeyInDifferentObjectScopes() {
+        getFixture().configureByText("scoped-keys.jjt", """
+                {
+                  "template": "root",
+                  "first": {
+                    "value": 1
+                  },
+                  "second": {
+                    "value": 2
+                  }
+                }
+                """);
+
+        var hasDuplicateHighlight = getFixture().doHighlighting().stream()
+                .map(HighlightInfo::getDescription)
+                .filter(description -> description != null)
+                .anyMatch(description -> description.startsWith("Object contains duplicate keys"));
+
+        assertFalse(hasDuplicateHighlight);
     }
 
     private static void assertErrorStripeMarker(HighlightInfo info) {
