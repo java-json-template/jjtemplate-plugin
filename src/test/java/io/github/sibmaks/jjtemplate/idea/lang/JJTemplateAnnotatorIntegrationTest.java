@@ -100,6 +100,32 @@ class JJTemplateAnnotatorIntegrationTest extends LightJavaCodeInsightFixtureTest
     }
 
     @Test
+    void reportsDuplicateDeclaredVariablesInTemplatedObjectKeys() {
+        var source = """
+                {
+                  "template": {
+                    "{{ key1 range key,value of .object }}": {},
+                    "{{ key1 switch .some }}": {}
+                  }
+                }
+                """;
+        getFixture().configureByText("duplicate-template-variable.jjt", source);
+
+        var duplicateHighlights = getFixture().doHighlighting().stream()
+                .filter(info -> "Object contains duplicate keys 'key1'".equals(info.getDescription()))
+                .toList();
+
+        assertEquals(2, duplicateHighlights.size());
+        assertEquals(
+                List.of("key1", "key1"),
+                duplicateHighlights.stream()
+                        .map(info -> source.substring(info.startOffset, info.endOffset))
+                        .toList()
+        );
+        duplicateHighlights.forEach(info -> assertEquals(HighlightSeverity.WARNING, info.getSeverity()));
+    }
+
+    @Test
     void allowsSameKeyInDifferentObjectScopes() {
         getFixture().configureByText("scoped-keys.jjt", """
                 {

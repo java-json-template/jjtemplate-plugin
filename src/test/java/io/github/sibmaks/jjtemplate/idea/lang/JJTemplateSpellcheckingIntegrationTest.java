@@ -52,8 +52,7 @@ class JJTemplateSpellcheckingIntegrationTest extends LightJavaCodeInsightFixture
         getFixture().doHighlighting();
 
         var fixes = getFixture().getAllQuickFixes().stream()
-                .filter(action -> action.getText().contains("attachments"))
-                .filter(action -> action.getText().contains("rename usages"))
+                .filter(action -> "attachments".equals(action.getText()))
                 .toList();
         assertTrue(!fixes.isEmpty(), "fixes=" + fixes);
         getFixture().launchAction(fixes.getFirst());
@@ -62,6 +61,38 @@ class JJTemplateSpellcheckingIntegrationTest extends LightJavaCodeInsightFixture
                 {
                   "definitions": [{"attachments": []}],
                   "template": "{{ .attachments }} {{ .attachments.size }}"
+                }
+                """, getFixture().getFile().getText());
+    }
+
+    @Test
+    void spellingCorrectionOnNamedRangeRenamesSpreadUsage() {
+        getFixture().configureByText("named-range-spelling-fix.jjt", """
+                {
+                  "definitions": [
+                    {"{{ attach<caret>ements range key,value of .object }}": "{{ .key }} = {{ .value }}"}
+                  ],
+                  "template": "{{ . }}",
+                  "list": [42, "{{. .attachements }}"]
+                }
+                """);
+        getFixture().enableInspections(new SpellCheckingInspection());
+        getFixture().doHighlighting();
+
+        var availableFixes = getFixture().getAvailableIntentions();
+        var fix = availableFixes.stream()
+                .filter(action -> "attachments".equals(action.getText()))
+                .findFirst()
+                .orElseThrow();
+        getFixture().launchAction(fix);
+
+        assertEquals("""
+                {
+                  "definitions": [
+                    {"{{ attachments range key,value of .object }}": "{{ .key }} = {{ .value }}"}
+                  ],
+                  "template": "{{ . }}",
+                  "list": [42, "{{. .attachments }}"]
                 }
                 """, getFixture().getFile().getText());
     }

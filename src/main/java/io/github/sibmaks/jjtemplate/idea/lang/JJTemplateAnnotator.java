@@ -408,7 +408,10 @@ public final class JJTemplateAnnotator implements Annotator {
                 } else if (token == JsonToken.FIELD_NAME && !objectKeys.isEmpty()) {
                     var key = parser.currentName();
                     var keyRange = jsonKeyRange(text, parser.currentTokenLocation().getCharOffset());
-                    objectKeys.getLast().computeIfAbsent(key, ignored -> new ArrayList<>()).add(keyRange);
+                    var occurrence = duplicateKeyOccurrence(text, key, keyRange);
+                    objectKeys.getLast()
+                            .computeIfAbsent(occurrence.name(), ignored -> new ArrayList<>())
+                            .add(occurrence.range());
                 } else if (token == JsonToken.END_OBJECT && !objectKeys.isEmpty()) {
                     collectDuplicateKeys(objectKeys.removeLast(), duplicateKeys);
                 }
@@ -451,6 +454,43 @@ public final class JJTemplateAnnotator implements Annotator {
         return TextRange.from(start, 1);
     }
 
+    private static DuplicateKeyOccurrence duplicateKeyOccurrence(
+            String text,
+            String parsedKey,
+            TextRange keyRange
+    ) {
+        if (keyRange.getLength() < 2
+                || text.charAt(keyRange.getStartOffset()) != '"'
+                || text.charAt(keyRange.getEndOffset() - 1) != '"') {
+            return new DuplicateKeyOccurrence(parsedKey, keyRange);
+        }
+        var contentStart = keyRange.getStartOffset() + 1;
+        var contentEnd = keyRange.getEndOffset() - 1;
+        var content = text.substring(contentStart, contentEnd);
+        try {
+            var tokens = new TemplateLexer(content).tokens();
+            for (int i = 0; i < tokens.size(); i++) {
+                var candidate = tokens.get(i);
+                if (candidate.type != TokenType.IDENT) {
+                    continue;
+                }
+                var next = findNextNonTextToken(tokens, i + 1);
+                if (next == null || next.type() != TokenType.KEYWORD) {
+                    continue;
+                }
+                if (Keyword.RANGE.eq(next.token().lexeme) || Keyword.SWITCH.eq(next.token().lexeme)) {
+                    return new DuplicateKeyOccurrence(
+                            candidate.lexeme,
+                            TextRange.create(contentStart + candidate.start, contentStart + candidate.end)
+                    );
+                }
+            }
+        } catch (Exception ignored) {
+            // Invalid template keys are handled by the template syntax diagnostics.
+        }
+        return new DuplicateKeyOccurrence(parsedKey, keyRange);
+    }
+
     private static void collectDuplicateKeys(Map<String, List<TextRange>> objectKeys,
                                              List<DuplicateKeys> duplicateKeys) {
         for (var entry : objectKeys.entrySet()) {
@@ -472,6 +512,9 @@ public final class JJTemplateAnnotator implements Annotator {
     }
 
     private record DuplicateKeys(String key, List<TextRange> ranges) {
+    }
+
+    private record DuplicateKeyOccurrence(String name, TextRange range) {
     }
 
     private static boolean isInsideTemplate(String text, int offset) {
