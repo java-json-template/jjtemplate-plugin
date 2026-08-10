@@ -71,7 +71,7 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
         // For .a.b.c resolve any clicked segment to root 'a'.
         var idx = identTokenIndex;
         while (idx - 2 > range.openTokenIndex()
-                && tokens.get(idx - 1).type == TokenType.DOT
+                && isMemberSeparator(tokens.get(idx - 1).type)
                 && tokens.get(idx - 2).type == TokenType.IDENT
                 && isPathContinuation(tokens, idx - 2, range.openTokenIndex())) {
             idx -= 2;
@@ -92,7 +92,7 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
     private static List<String> resolveReferencePath(List<Token> tokens, TemplateRange range, int identTokenIndex) {
         var start = identTokenIndex;
         while (start - 2 > range.openTokenIndex()
-                && tokens.get(start - 1).type == TokenType.DOT
+                && isMemberSeparator(tokens.get(start - 1).type)
                 && tokens.get(start - 2).type == TokenType.IDENT
                 && isPathContinuation(tokens, start - 2, range.openTokenIndex())) {
             start -= 2;
@@ -109,7 +109,11 @@ public final class JJTemplateGotoDeclarationHandler implements GotoDeclarationHa
 
     private static boolean isPathContinuation(List<Token> tokens, int identIndex, int openTokenIndex) {
         var before = identIndex - 1;
-        return before > openTokenIndex && tokens.get(before).type == TokenType.DOT;
+        return before > openTokenIndex && isMemberSeparator(tokens.get(before).type);
+    }
+
+    private static boolean isMemberSeparator(TokenType tokenType) {
+        return tokenType == TokenType.DOT || tokenType == TokenType.SAFE_DOT;
     }
 
     private static Token nextNonTextToken(List<Token> tokens, int fromInclusive, int toExclusive) {

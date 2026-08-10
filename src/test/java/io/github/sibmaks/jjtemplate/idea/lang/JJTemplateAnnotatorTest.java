@@ -72,6 +72,26 @@ class JJTemplateAnnotatorTest {
         throw new AssertionError("Definition reference not found");
     }
 
+    @Test
+    void highlightsSafePropertyAsMemberVariable() {
+        var tokens = new TemplateLexer("{{ .repository?.on }}").tokens();
+
+        assertSame(
+                JJTemplateSyntaxHighlighter.TEMPLATE_VARIABLE,
+                identifierAttributes(tokens, "on", Set.of())
+        );
+    }
+
+    @Test
+    void highlightsSafeMethodAsFunction() {
+        var tokens = new TemplateLexer("{{ .value?.substring(1) }}").tokens();
+
+        assertSame(
+                JJTemplateSyntaxHighlighter.TEMPLATE_FUNCTION,
+                identifierAttributes(tokens, "substring", Set.of())
+        );
+    }
+
     private static TextAttributesKey identifierAttributes(
             List<Token> tokens,
             String name,

@@ -602,7 +602,7 @@ public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFact
         var cursor = rootIndex;
         while (true) {
             var dot = findNextNonTextToken(tokens, cursor + 1);
-            if (dot == null || dot.type() != TokenType.DOT) {
+            if (dot == null || !isMemberSeparator(dot.type())) {
                 break;
             }
             var segment = findNextNonTextToken(tokens, dot.index + 1);
@@ -630,7 +630,7 @@ public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFact
                         ? null
                         : new StaticMethodCall(segments.toArray(String[]::new), arguments);
             }
-            if (next.type() != TokenType.DOT) {
+            if (!isMemberSeparator(next.type())) {
                 return null;
             }
             var segment = findNextNonTextToken(tokens, next.index + 1);
@@ -687,6 +687,10 @@ public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFact
             case NULL -> StaticArgument.NULL;
             default -> StaticArgument.NOT_LITERAL;
         };
+    }
+
+    private static boolean isMemberSeparator(TokenType tokenType) {
+        return tokenType == TokenType.DOT || tokenType == TokenType.SAFE_DOT;
     }
 
     private static Set<String> collectRangeBindings(@NotNull List<Token> tokens) {

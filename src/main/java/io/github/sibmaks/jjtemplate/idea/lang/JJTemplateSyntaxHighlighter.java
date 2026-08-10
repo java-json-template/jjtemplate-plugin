@@ -45,6 +45,7 @@ public final class JJTemplateSyntaxHighlighter extends SyntaxHighlighterBase {
             Map.entry(JJTemplateTokenTypes.NULL, pack(JSON_BOOLEAN)),
             Map.entry(JJTemplateTokenTypes.PIPE, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
             Map.entry(JJTemplateTokenTypes.DOT, pack(DefaultLanguageHighlighterColors.DOT)),
+            Map.entry(JJTemplateTokenTypes.SAFE_DOT, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
             Map.entry(JJTemplateTokenTypes.COMMA, pack(DefaultLanguageHighlighterColors.COMMA)),
             Map.entry(JJTemplateTokenTypes.COLON, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),
             Map.entry(JJTemplateTokenTypes.QUESTION, pack(DefaultLanguageHighlighterColors.OPERATION_SIGN)),

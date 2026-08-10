@@ -133,6 +133,28 @@ class JJTemplateSideMenuToolWindowFactoryTest {
     }
 
     @Test
+    void compileSourceSupportsSafePropertyAndMethodAccess() throws Exception {
+        var source = """
+                {
+                  "template": {
+                    "property": "{{ default .repository?.on, false }}",
+                    "method": "{{ default .value?.doesNotExist('argument'), 'missing' }}"
+                  }
+                }
+                """;
+        var contextJson = """
+                {
+                  "repository": {},
+                  "value": "text"
+                }
+                """;
+
+        var rendered = JJTemplateSideMenuToolWindowFactory.compileSource(source, contextJson);
+
+        assertEquals(Map.of("property", false, "method", "missing"), rendered);
+    }
+
+    @Test
     void compileSourceReportsFunctionCallsWithoutMatchingMockCase() {
         var source = """
                 {
@@ -209,6 +231,37 @@ class JJTemplateSideMenuToolWindowFactoryTest {
         var generated = JJTemplateSideMenuToolWindowFactory.buildContextTemplate(source);
 
         assertEquals(expected.toString(), MAPPER.writeValueAsString(generated));
+    }
+
+    @Test
+    void buildContextTemplateFollowsSafeMemberChains() throws Exception {
+        var source = """
+                {
+                  "template": [
+                    "{{ .repository?.on }}",
+                    "{{ .service?.lookup('value') }}"
+                  ]
+                }
+                """;
+        var expected = MAPPER.readTree("""
+                {
+                  "repository": {
+                    "on": null
+                  },
+                  "service": {
+                    "lookup": [
+                      {
+                        "in": ["value"],
+                        "out": null
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        var generated = JJTemplateSideMenuToolWindowFactory.buildContextTemplate(source);
+
+        assertEquals(expected, MAPPER.valueToTree(generated));
     }
 
     @Test
@@ -354,6 +407,22 @@ class JJTemplateSideMenuToolWindowFactoryTest {
         var rendered = TemplateCompiler.getInstance().compile(optimizedScript).render();
 
         assertEquals("matched", rendered);
+    }
+
+    @Test
+    void optimizeSourcePreservesSafeMemberAccess() throws Exception {
+        var source = """
+                {
+                  "template": "{{ default .repository?.on, false }}"
+                }
+                """;
+
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(source, List.of(), 2);
+
+        assertEquals(
+                "{{ default .repository?.on, false }}",
+                MAPPER.readTree(optimized).path("template").asText()
+        );
     }
 
     @Test

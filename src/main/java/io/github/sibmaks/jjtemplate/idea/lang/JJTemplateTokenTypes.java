@@ -10,6 +10,7 @@ public final class JJTemplateTokenTypes {
     public static final IElementType CLOSE = new IElementType("CLOSE", JJTemplateLanguage.INSTANCE);
     public static final IElementType PIPE = new IElementType("PIPE", JJTemplateLanguage.INSTANCE);
     public static final IElementType DOT = new IElementType("DOT", JJTemplateLanguage.INSTANCE);
+    public static final IElementType SAFE_DOT = new IElementType("SAFE_DOT", JJTemplateLanguage.INSTANCE);
     public static final IElementType COMMA = new IElementType("COMMA", JJTemplateLanguage.INSTANCE);
     public static final IElementType COLON = new IElementType("COLON", JJTemplateLanguage.INSTANCE);
     public static final IElementType QUESTION = new IElementType("QUESTION", JJTemplateLanguage.INSTANCE);

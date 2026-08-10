@@ -28,6 +28,7 @@ public final class JJTemplateSyntaxLexer extends LexerBase {
             case CLOSE -> JJTemplateTokenTypes.CLOSE;
             case PIPE -> JJTemplateTokenTypes.PIPE;
             case DOT -> JJTemplateTokenTypes.DOT;
+            case SAFE_DOT -> JJTemplateTokenTypes.SAFE_DOT;
             case COMMA -> JJTemplateTokenTypes.COMMA;
             case COLON -> JJTemplateTokenTypes.COLON;
             case QUESTION -> JJTemplateTokenTypes.QUESTION;

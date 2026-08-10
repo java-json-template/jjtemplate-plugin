@@ -361,7 +361,7 @@ public final class JJTemplateAnnotator implements Annotator {
             case OPEN_EXPR, OPEN_COND, OPEN_SPREAD, CLOSE -> DefaultLanguageHighlighterColors.BRACES;
             case KEYWORD, BOOLEAN, NULL -> DefaultLanguageHighlighterColors.KEYWORD;
             case NUMBER -> DefaultLanguageHighlighterColors.NUMBER;
-            case PIPE, COLON, QUESTION -> DefaultLanguageHighlighterColors.OPERATION_SIGN;
+            case PIPE, SAFE_DOT, COLON, QUESTION -> DefaultLanguageHighlighterColors.OPERATION_SIGN;
             case DOT -> DefaultLanguageHighlighterColors.DOT;
             case COMMA -> DefaultLanguageHighlighterColors.COMMA;
             case LPAREN, RPAREN -> DefaultLanguageHighlighterColors.PARENTHESES;
@@ -575,7 +575,8 @@ public final class JJTemplateAnnotator implements Annotator {
 
     private static boolean isBareFunctionCall(List<Token> tokens, int identIndex) {
         var previous = findPreviousNonTextToken(tokens, identIndex - 1);
-        if (previous != null && (previous.type() == TokenType.DOT || previous.type() == TokenType.COLON
+        if (previous != null && (previous.type() == TokenType.DOT || previous.type() == TokenType.SAFE_DOT
+                || previous.type() == TokenType.COLON
                 || previous.type() == TokenType.PIPE || previous.type() == TokenType.IDENT)) {
             return false;
         }
