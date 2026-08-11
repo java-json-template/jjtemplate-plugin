@@ -73,6 +73,7 @@ class JJTemplateSpellcheckingIntegrationTest extends LightJavaCodeInsightFixture
                     {"{{ attach<caret>ements range key,value of .object }}": "{{ .key }} = {{ .value }}"}
                   ],
                   "template": "{{ . }}",
+                  "key": {{ }},
                   "list": [42, "{{. .attachements }}"]
                 }
                 """);
@@ -92,7 +93,53 @@ class JJTemplateSpellcheckingIntegrationTest extends LightJavaCodeInsightFixture
                     {"{{ attachments range key,value of .object }}": "{{ .key }} = {{ .value }}"}
                   ],
                   "template": "{{ . }}",
+                  "key": {{ }},
                   "list": [42, "{{. .attachments }}"]
+                }
+                """, getFixture().getFile().getText());
+    }
+
+    @Test
+    void spellingCorrectionRenamesExactNamedRangeExampleFromDefinition() {
+        assertExactNamedRangeSpellingCorrection(true);
+    }
+
+    @Test
+    void spellingCorrectionRenamesExactNamedRangeExampleFromUsage() {
+        assertExactNamedRangeSpellingCorrection(false);
+    }
+
+    private void assertExactNamedRangeSpellingCorrection(boolean caretInDefinition) {
+        var definitionName = caretInDefinition ? "attach<caret>ements" : "attachements";
+        var usageName = caretInDefinition ? "attachements" : "attach<caret>ements";
+        getFixture().configureByText("exact-named-range-spelling-fix.jjt", """
+                {
+                  "definitions": [
+                    {
+                      "{{ %s range entry,index of .input.entrySet() }}": "{{ .entry.value }}"
+                    }
+                  ],
+                  "template": "{{ .%s | cast:str }}"
+                }
+                """.formatted(definitionName, usageName));
+        getFixture().enableInspections(new SpellCheckingInspection());
+        getFixture().doHighlighting();
+
+        var availableFixes = getFixture().getAvailableIntentions();
+        var attachmentFixes = availableFixes.stream()
+                .filter(action -> "attachments".equals(action.getText()))
+                .toList();
+        assertEquals(1, attachmentFixes.size(), "available fixes=" + availableFixes);
+        getFixture().launchAction(attachmentFixes.getFirst());
+
+        assertEquals("""
+                {
+                  "definitions": [
+                    {
+                      "{{ attachments range entry,index of .input.entrySet() }}": "{{ .entry.value }}"
+                    }
+                  ],
+                  "template": "{{ .attachments | cast:str }}"
                 }
                 """, getFixture().getFile().getText());
     }

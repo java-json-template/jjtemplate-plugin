@@ -41,10 +41,11 @@ final class UnusedDefinitionAnalyzer {
     }
 
     static List<RangeScope> findRangeScopes(String source) {
-        if (!isValidJson(source)) {
+        var projection = toJsonProjection(source);
+        if (!isValidJson(projection)) {
             return List.of();
         }
-        return new JsonStructureParser(source).parse().rangeScopes();
+        return new JsonStructureParser(projection).parse().rangeScopes();
     }
 
     private static boolean isValidJson(String source) {
@@ -57,10 +58,50 @@ final class UnusedDefinitionAnalyzer {
     }
 
     private static AnalysisMetadata analyze(String source) {
-        if (!isValidJson(source)) {
+        var projection = toJsonProjection(source);
+        if (!isValidJson(projection)) {
             return new AnalysisMetadata(List.of(), List.of());
         }
-        return new JsonStructureParser(source).parse();
+        return new JsonStructureParser(projection).parse();
+    }
+
+    private static String toJsonProjection(String source) {
+        var projection = source.toCharArray();
+        var inString = false;
+        var escaped = false;
+        for (int i = 0; i < source.length(); i++) {
+            var character = source.charAt(i);
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (character == '\\') {
+                    escaped = true;
+                } else if (character == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (character == '"') {
+                inString = true;
+                continue;
+            }
+            if (!TemplateTextScanner.isTemplateStart(source, i)) {
+                continue;
+            }
+            var templateEnd = TemplateTextScanner.findTemplateEnd(source, i, source.length());
+            if (templateEnd < 0) {
+                return source;
+            }
+            for (int offset = i; offset < templateEnd; offset++) {
+                projection[offset] = ' ';
+            }
+            projection[i] = 'n';
+            projection[i + 1] = 'u';
+            projection[i + 2] = 'l';
+            projection[i + 3] = 'l';
+            i = templateEnd - 1;
+        }
+        return new String(projection);
     }
 
     private static Set<UnusedDefinition> collectUsedDefinitions(

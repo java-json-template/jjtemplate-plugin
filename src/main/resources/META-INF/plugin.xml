@@ -33,6 +33,8 @@
                    implementationClass="io.github.sibmaks.jjtemplate.idea.lang.JJTemplateAnnotator"/>
         <spellchecker.support language="JJTemplate"
                               implementationClass="io.github.sibmaks.jjtemplate.idea.lang.JJTemplateSpellcheckingStrategy"/>
+        <spellchecker.quickFixFactory implementation="io.github.sibmaks.jjtemplate.idea.lang.JJTemplateSpellcheckerQuickFixFactory"
+                                         order="first"/>
         <lang.foldingBuilder language="JJTemplate"
                              implementationClass="io.github.sibmaks.jjtemplate.idea.lang.JJTemplateFoldingBuilder"/>
         <postFormatProcessor implementation="io.github.sibmaks.jjtemplate.idea.lang.JJTemplatePostFormatProcessor"/>
