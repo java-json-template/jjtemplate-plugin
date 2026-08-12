@@ -199,7 +199,6 @@ public final class JJTemplateSideMenuToolWindowFactory implements ToolWindowFact
                     output
             );
         } catch (Exception exception) {
-            LOG.error("JJTemplate compilation failed", exception);
             showError(project, "Compilation failed:\n" + getRootMessage(exception));
         }
     }
