@@ -6,7 +6,7 @@ plugins {
     id("checkstyle")
     id("pmd")
     id("org.sonarqube") version "7.0.1.6134"
-    id("org.jetbrains.intellij.platform") version "2.10.5"
+    id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
 repositories {
@@ -30,6 +30,12 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.14.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+// Resolve the platform before IDEA imports bundled plugin dependencies, so their
+// local Ivy metadata is mapped to absolute paths inside the extracted IDE.
+if (System.getProperty("idea.active").toBoolean()) {
+    configurations["intellijPlatformDependency"].resolve()
 }
 
 intellijPlatform {
