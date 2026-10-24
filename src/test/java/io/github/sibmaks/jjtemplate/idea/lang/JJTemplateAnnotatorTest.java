@@ -5,6 +5,8 @@ import io.github.sibmaks.jjtemplate.lexer.TemplateLexer;
 import io.github.sibmaks.jjtemplate.lexer.api.Token;
 import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Set;
@@ -30,6 +32,46 @@ class JJTemplateAnnotatorTest {
     @Test
     void highlightsUnboundRootVariableAsContextVariable() {
         var tokens = new TemplateLexer("{{ .external }}").tokens();
+
+        assertSame(
+                JJTemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,
+                identifierAttributes(tokens, "external", Set.of())
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{{ .attachements.get(0).sub }}",
+            "{{ .attachements.get(indexOf(.indices, .selected)).sub }}",
+            "{{ .attachements.get(0).children.get(1).sub }}",
+            "{{ .attachements?.get(0).sub }}",
+            "{{ .attachements.get(0)?.sub }}"
+    })
+    void highlightsPropertyAfterMethodCallAsMemberVariable(String source) {
+        var tokens = new TemplateLexer(source).tokens();
+
+        assertSame(
+                JJTemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,
+                identifierAttributes(tokens, "attachements", Set.of())
+        );
+        assertSame(
+                JJTemplateSyntaxHighlighter.TEMPLATE_FUNCTION,
+                identifierAttributes(tokens, "get", Set.of())
+        );
+        assertSame(
+                JJTemplateSyntaxHighlighter.TEMPLATE_VARIABLE,
+                identifierAttributes(tokens, "sub", Set.of())
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{{ cast:str .external }}",
+            "{{ .value | default .external }}",
+            "{{ .attachements.get(.external).sub }}"
+    })
+    void highlightsRootVariableInFunctionArgumentAsContextVariable(String source) {
+        var tokens = new TemplateLexer(source).tokens();
 
         assertSame(
                 JJTemplateSyntaxHighlighter.TEMPLATE_CONTEXT_VARIABLE,

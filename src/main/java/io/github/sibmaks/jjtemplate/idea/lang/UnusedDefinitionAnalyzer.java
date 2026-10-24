@@ -139,6 +139,9 @@ final class UnusedDefinitionAnalyzer {
             return false;
         }
         var beforeDotIndex = previousNonTextTokenIndex(tokens, dotIndex - 1);
+        if (beforeDotIndex >= 0 && tokens.get(beforeDotIndex).type == TokenType.RPAREN) {
+            return false;
+        }
         if (beforeDotIndex < 0 || tokens.get(beforeDotIndex).type != TokenType.IDENT) {
             return true;
         }

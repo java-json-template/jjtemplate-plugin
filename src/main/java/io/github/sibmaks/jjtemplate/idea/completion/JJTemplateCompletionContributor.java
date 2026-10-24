@@ -394,7 +394,8 @@ public final class JJTemplateCompletionContributor extends CompletionContributor
         if (beforeDot < 0) {
             return true;
         }
-        return tokens.get(beforeDot).type != TokenType.IDENT;
+        return tokens.get(beforeDot).type != TokenType.IDENT
+                && tokens.get(beforeDot).type != TokenType.RPAREN;
     }
 
     private static Token findNextNonTextToken(List<Token> tokens, int fromInclusive, int upToIndex) {

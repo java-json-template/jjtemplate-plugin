@@ -206,6 +206,21 @@ class JJTemplateCompletionIntegrationTest extends LightJavaCodeInsightFixtureTes
     }
 
     @Test
+    void doesNotSuggestPropertyAfterMethodCallAsRecentGlobalVariable() {
+        getFixture().configureByText("method-property-global.jjt", """
+                {
+                  "template": "{{ .attachements.get(.index).sub }} {{ .<caret> }}"
+                }
+                """);
+
+        var lookups = lookupStrings(getFixture().completeBasic());
+
+        assertTrue(lookups.contains("attachements"), lookups::toString);
+        assertTrue(lookups.contains("index"), lookups::toString);
+        assertFalse(lookups.contains("sub"), lookups::toString);
+    }
+
+    @Test
     void doesNotSuggestCompletionForNumericPrefix() {
         getFixture().configureByText("number-before-dot.jjt", """
                 {

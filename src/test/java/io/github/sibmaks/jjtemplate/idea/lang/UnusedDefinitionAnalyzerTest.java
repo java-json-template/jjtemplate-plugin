@@ -66,6 +66,24 @@ class UnusedDefinitionAnalyzerTest {
     }
 
     @Test
+    void propertyAfterMethodCallDoesNotCountAsRootDefinitionReference() {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "attachements": [],
+                      "index": 0,
+                      "sub": "unused"
+                    }
+                  ],
+                  "template": "{{ .attachements.get(.index).sub }}"
+                }
+                """;
+
+        assertEquals(List.of("sub"), findUnusedNames(source));
+    }
+
+    @Test
     void referenceBeforeDefinitionIsGlobalAndDoesNotMarkDefinitionUsed() {
         var source = """
                 {

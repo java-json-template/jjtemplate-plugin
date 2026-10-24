@@ -765,6 +765,9 @@ public final class JJTemplateAnnotator implements Annotator {
             return false;
         }
         var beforeDot = findPreviousNonTextToken(tokens, previous.index() - 1);
+        if (beforeDot != null && beforeDot.type() == TokenType.RPAREN) {
+            return false;
+        }
         if (beforeDot == null || beforeDot.type() != TokenType.IDENT) {
             return true;
         }

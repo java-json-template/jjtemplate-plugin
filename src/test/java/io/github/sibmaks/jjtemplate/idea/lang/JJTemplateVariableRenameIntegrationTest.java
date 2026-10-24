@@ -125,6 +125,14 @@ class JJTemplateVariableRenameIntegrationTest extends LightJavaCodeInsightFixtur
                 }
                 """);
         assertNull(ReadAction.compute(() -> getFixture().getFile().findReferenceAt(getFixture().getCaretOffset())));
+
+        getFixture().configureByText("not-method-property.jjt", """
+                {
+                  "definitions": [{"sub": 1}],
+                  "template": "{{ .attachements.get(0).su<caret>b }}"
+                }
+                """);
+        assertNull(ReadAction.compute(() -> getFixture().getFile().findReferenceAt(getFixture().getCaretOffset())));
     }
 
     private void renameAtCaret(String newName) {

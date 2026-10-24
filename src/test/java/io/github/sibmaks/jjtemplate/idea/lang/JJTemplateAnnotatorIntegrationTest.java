@@ -46,6 +46,24 @@ class JJTemplateAnnotatorIntegrationTest extends LightJavaCodeInsightFixtureTest
     }
 
     @Test
+    void doesNotMarkPropertyAfterMethodCallAsGlobalVariable() {
+        var source = """
+                {
+                  "template": "{{ .attachements.get(0).sub }}"
+                }
+                """;
+        getFixture().configureByText("method-property.jjt", source);
+
+        var globalNames = getFixture().doHighlighting().stream()
+                .filter(info -> info.getDescription() != null)
+                .filter(info -> info.getDescription().startsWith("Global variable '"))
+                .map(info -> source.substring(info.startOffset, info.endOffset))
+                .toList();
+
+        assertEquals(List.of("attachements"), globalNames);
+    }
+
+    @Test
     void reportsDuplicateKeysInSameObject() {
         var source = """
                 {
