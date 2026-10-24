@@ -4,14 +4,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateCompiler;
 import io.github.sibmaks.jjtemplate.compiler.api.TemplateScript;
 import io.github.sibmaks.jjtemplate.compiler.optimizer.CompiledTemplateFolder;
+import io.github.sibmaks.jjtemplate.compiler.optimizer.TemplateOptimizer;
 import io.github.sibmaks.jjtemplate.compiler.optimizer.UnusedVariableNodeEliminator;
 import io.github.sibmaks.jjtemplate.compiler.optimizer.VariableNodeInliner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JJTemplateSideMenuToolWindowFactoryTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -409,6 +417,59 @@ class JJTemplateSideMenuToolWindowFactoryTest {
         assertEquals("matched", rendered);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void optimizeSourcePreservesEnumSwitchMatching(boolean optimize) throws Exception {
+        var source = """
+                {
+                  "definitions": [
+                    {
+                      "{{ constant switch .state }}": {
+                        "READY": "ready",
+                        "{{ else }}": "fallback"
+                      },
+                      "{{ dynamic switch .state }}": {
+                        "{{ .caseKey }}": "matched",
+                        "{{ else }}": "fallback"
+                      }
+                    }
+                  ],
+                  "template": {
+                    "constant": "{{ .constant }}",
+                    "dynamic": "{{ .dynamic }}"
+                  }
+                }
+                """;
+        List<TemplateOptimizer> optimizers = optimize
+                ? List.of(
+                        new CompiledTemplateFolder(),
+                        new VariableNodeInliner(),
+                        new UnusedVariableNodeEliminator()
+                )
+                : List.of();
+
+        var optimized = JJTemplateSideMenuToolWindowFactory.optimizeSource(source, optimizers, 2);
+        var script = MAPPER.readValue(optimized, TemplateScript.class);
+        var compiled = TemplateCompiler.getInstance().compile(script);
+
+        assertEquals(
+                Map.of("constant", "ready", "dynamic", "matched"),
+                compiled.render(Map.of("state", SwitchState.READY, "caseKey", "READY"))
+        );
+        assertEquals(
+                Map.of("constant", "fallback", "dynamic", "fallback"),
+                compiled.render(Map.of("state", SwitchState.BLOCKED, "caseKey", "READY"))
+        );
+        assertEquals(
+                Map.of("constant", "ready", "dynamic", "fallback"),
+                compiled.render(Map.of("state", SwitchState.READY, "caseKey", "ready"))
+        );
+        assertEquals(
+                Map.of("constant", "ready", "dynamic", "matched"),
+                compiled.render(Map.of("state", "READY", "caseKey", "READY"))
+        );
+    }
+
     @Test
     void optimizeSourcePreservesSafeMemberAccess() throws Exception {
         var source = """
@@ -536,5 +597,15 @@ class JJTemplateSideMenuToolWindowFactoryTest {
         var actual = compiler.compile(optimizedScript).render(context);
 
         assertEquals(expected, actual);
+    }
+
+    private enum SwitchState {
+        READY,
+        BLOCKED;
+
+        @Override
+        public String toString() {
+            return name().toLowerCase(Locale.ROOT);
+        }
     }
 }

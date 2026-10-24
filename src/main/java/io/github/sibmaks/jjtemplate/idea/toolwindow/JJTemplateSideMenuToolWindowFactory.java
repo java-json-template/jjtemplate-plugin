@@ -48,12 +48,25 @@ import io.github.sibmaks.jjtemplate.lexer.api.TokenType;
 import io.github.sibmaks.jjtemplate.parser.ExpressionParser;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.*;
-import java.awt.*;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
